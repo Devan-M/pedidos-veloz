@@ -1,0 +1,17 @@
+.env
+*.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.log
+
+secret.yaml
+k8s/**/secret.yaml
+
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+crash.log

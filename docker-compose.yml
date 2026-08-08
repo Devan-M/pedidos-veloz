@@ -1,0 +1,102 @@
+services:
+  gateway:
+    build:
+      context: ./services/gateway
+    image: pedidos-veloz/gateway:0.1.0
+    ports:
+      - "8000:8000"
+    environment:
+      ORDERS_URL: http://orders:8000
+      PAYMENTS_URL: http://payments:8000
+      INVENTORY_URL: http://inventory:8000
+    depends_on:
+      - orders
+      - payments
+      - inventory
+    restart: unless-stopped
+
+  orders:
+    build:
+      context: ./services/orders
+    image: pedidos-veloz/orders:0.1.0
+    expose:
+      - "8000"
+    environment:
+      DATABASE_URL: postgresql://pedidos:pedidos@postgres:5432/pedidos
+      RABBITMQ_URL: amqp://pedidos:pedidos@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  payments:
+    build:
+      context: ./services/payments
+    image: pedidos-veloz/payments:0.1.0
+    expose:
+      - "8000"
+    environment:
+      DATABASE_URL: postgresql://pedidos:pedidos@postgres:5432/pedidos
+      RABBITMQ_URL: amqp://pedidos:pedidos@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  inventory:
+    build:
+      context: ./services/inventory
+    image: pedidos-veloz/inventory:0.1.0
+    expose:
+      - "8000"
+    environment:
+      DATABASE_URL: postgresql://pedidos:pedidos@postgres:5432/pedidos
+      RABBITMQ_URL: amqp://pedidos:pedidos@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pedidos
+      POSTGRES_USER: pedidos
+      POSTGRES_PASSWORD: pedidos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pedidos -d pedidos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: pedidos
+      RABBITMQ_DEFAULT_PASS: pedidos
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
