@@ -70,19 +70,20 @@ jobs:
           cp .env.example .env
           docker compose config --quiet
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: latest
+      - name: Install kubeconform
+        run: |
+          curl -L -o kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+          kubeconform -version
 
       - name: Validate Kubernetes manifests
         run: |
-          kubectl apply --dry-run=client --validate=false -f k8s/namespace.yaml
-          kubectl apply --dry-run=client --validate=false -f k8s/secret.yaml
-          kubectl apply --dry-run=client --validate=false -f k8s/infrastructure.yaml
-          kubectl apply --dry-run=client --validate=false -f k8s/services.yaml
-          kubectl apply --dry-run=client --validate=false -f k8s/monitoring.yaml
-          kubectl apply --dry-run=client --validate=false -f k8s/grafana-ingress.yaml
+          kubeconform \
+            -strict \
+            -summary \
+            k8s/*.yaml
 
       - name: Scan versioned files for hardcoded credentials
         run: |
