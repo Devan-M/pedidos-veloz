@@ -52,10 +52,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://pedidos:pedidos-ci@127.0.0.1:5432/pedidos
         run: |
-          if find services -type f |( -name "test_*.py" -o -name "*_test.py" |) -print -quit | grep -q .; then
+          if find services -type f \( -name "test_*.py" -o -name "*_test.py" \) -print -quit | grep -q .; then
             for service in gateway inventory orders payments; do
               echo "== Testing $service =="
-              if find "services/$service" -type f |( -name "test_*.py" -o -name "*_test.py" |) -print -quit | grep -q .; then
+              if find "services/$service" -type f \( -name "test_*.py" -o -name "*_test.py" \) -print -quit | grep -q .; then
                 (cd "services/$service" && PYTHONPATH=. pytest -q)
               else
                 echo "No tests found for $service; skipping."
