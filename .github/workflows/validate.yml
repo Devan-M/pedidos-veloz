@@ -13,6 +13,22 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pedidos
+          POSTGRES_USER: pedidos
+          POSTGRES_PASSWORD: pedidos-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pedidos -d pedidos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,9 +49,18 @@ jobs:
         run: python -m compileall -q services
 
       - name: Run tests
+        env:
+          DATABASE_URL: postgresql://pedidos:pedidos-ci@127.0.0.1:5432/pedidos
         run: |
-          if find services -type f \( -name "test_*.py" -o -name "*_test.py" \) -print -quit | grep -q .; then
-            PYTHONPATH=services/gateway:services/inventory:services/orders:services/payments pytest -q
+          if find services -type f |( -name "test_*.py" -o -name "*_test.py" |) -print -quit | grep -q .; then
+            for service in gateway inventory orders payments; do
+              echo "== Testing $service =="
+              if find "services/$service" -type f |( -name "test_*.py" -o -name "*_test.py" |) -print -quit | grep -q .; then
+                (cd "services/$service" && PYTHONPATH=. pytest -q)
+              else
+                echo "No tests found for $service; skipping."
+              fi
+            done
           else
             echo "No tests found; skipping pytest."
           fi
