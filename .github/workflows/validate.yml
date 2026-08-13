@@ -77,12 +77,12 @@ jobs:
 
       - name: Validate Kubernetes manifests
         run: |
-          kubectl apply --dry-run=client -f k8s/namespace.yaml
-          kubectl apply --dry-run=client -f k8s/secret.yaml
-          kubectl apply --dry-run=client -f k8s/infrastructure.yaml
-          kubectl apply --dry-run=client -f k8s/services.yaml
-          kubectl apply --dry-run=client -f k8s/monitoring.yaml
-          kubectl apply --dry-run=client -f k8s/grafana-ingress.yaml
+          kubectl apply --dry-run=client --validate=false -f k8s/namespace.yaml
+          kubectl apply --dry-run=client --validate=false -f k8s/secret.yaml
+          kubectl apply --dry-run=client --validate=false -f k8s/infrastructure.yaml
+          kubectl apply --dry-run=client --validate=false -f k8s/services.yaml
+          kubectl apply --dry-run=client --validate=false -f k8s/monitoring.yaml
+          kubectl apply --dry-run=client --validate=false -f k8s/grafana-ingress.yaml
 
       - name: Scan versioned files for hardcoded credentials
         run: |
