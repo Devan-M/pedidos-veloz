@@ -1,0 +1,67 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/orders/requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r services/orders/requirements.txt pytest
+
+      - name: Compile Python sources
+        run: python -m compileall -q services
+
+      - name: Run tests
+        run: |
+          if find services -type f \( -name "test_*.py" -o -name "*_test.py" \) -print -quit | grep -q .; then
+            pytest -q
+          else
+            echo "No tests found; skipping pytest."
+          fi
+
+      - name: Validate Docker Compose
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl apply --dry-run=client -f k8s/namespace.yaml
+          kubectl apply --dry-run=client -f k8s/secret.yaml
+          kubectl apply --dry-run=client -f k8s/infrastructure.yaml
+          kubectl apply --dry-run=client -f k8s/services.yaml
+          kubectl apply --dry-run=client -f k8s/monitoring.yaml
+          kubectl apply --dry-run=client -f k8s/grafana-ingress.yaml
+
+      - name: Scan versioned files for hardcoded credentials
+        run: |
+          if git grep -nEi "postgresql://[^[:space:]]+:[^${[:space:]@]+@|amqp://[^[:space:]]+:[^${[:space:]@]+@|troque-esta-senha|substituir-por-senha-forte" -- . ":!.env" ":!k8s/secret.yaml"; then
+            echo "Potential hardcoded credential found."
+            exit 1
+          fi
