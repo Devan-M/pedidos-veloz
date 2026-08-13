@@ -35,7 +35,7 @@ jobs:
       - name: Run tests
         run: |
           if find services -type f \( -name "test_*.py" -o -name "*_test.py" \) -print -quit | grep -q .; then
-            pytest -q
+            PYTHONPATH=services/gateway:services/inventory:services/orders:services/payments pytest -q
           else
             echo "No tests found; skipping pytest."
           fi
