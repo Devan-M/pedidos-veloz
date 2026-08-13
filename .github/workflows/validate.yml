@@ -76,7 +76,7 @@ jobs:
             https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
           tar -xzf kubeconform.tar.gz
           sudo mv kubeconform /usr/local/bin/kubeconform
-          kubeconform -version
+          kubeconform -v
 
       - name: Validate Kubernetes manifests
         run: |
