@@ -87,7 +87,13 @@ jobs:
 
       - name: Scan versioned files for hardcoded credentials
         run: |
-          if git grep -nEi "postgresql://[^[:space:]]+:[^${[:space:]@]+@|amqp://[^[:space:]]+:[^${[:space:]@]+@|troque-esta-senha|substituir-por-senha-forte" -- . ":!.env" ":!k8s/secret.yaml"; then
+          if git grep -nEi \
+            'postgresql://[^[:space:]]+:[^${[:space:]@]+@|amqp://[^[:space:]]+:[^${[:space:]@]+@|troque-esta-senha|substituir-por-senha-forte' \
+            -- . \
+            ':!.env' \
+            ':!k8s/secret.yaml' \
+            ':!.github/workflows/validate.yml'
+          then
             echo "Potential hardcoded credential found."
             exit 1
           fi
