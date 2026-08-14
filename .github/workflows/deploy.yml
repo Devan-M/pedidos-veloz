@@ -69,6 +69,15 @@ jobs:
           chmod 600 "$HOME/.kube/config"
       - name: Verify cluster access
         run: kubectl cluster-info
+      - name: Generate application secret manifest
+        env:
+          K8S_APP_SECRET_YAML: ${{ secrets.K8S_APP_SECRET_YAML }}
+        run: |
+          test -n "$K8S_APP_SECRET_YAML" || {
+            echo "Secret K8S_APP_SECRET_YAML não configurado."
+            exit 1
+          }
+          printf '%s' "$K8S_APP_SECRET_YAML" > k8s/secret.yaml
       - name: Apply namespace and infrastructure
         run: |
           kubectl apply -f k8s/namespace.yaml
