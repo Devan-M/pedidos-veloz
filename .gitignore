@@ -16,3 +16,7 @@ terraform.tfstate.*
 *.tfvars
 crash.log
 actions-runner/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+.bootstrap-backup-
