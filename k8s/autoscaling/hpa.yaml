@@ -8,7 +8,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: gateway
-  minReplicas: 1 # Ajustado para 1 para não brigar com o limite de hardware do k3d local
+  minReplicas: 1
   maxReplicas: 5
   metrics:
     - type: Resource
@@ -22,13 +22,13 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: orders
-  namespace: ${NAMESPACE}
+  namespace: pedidos-veloz
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: orders
-  minReplicas: 1 # Ajustado para o laboratório local
+  minReplicas: 1
   maxReplicas: 5
   metrics:
     - type: Resource
