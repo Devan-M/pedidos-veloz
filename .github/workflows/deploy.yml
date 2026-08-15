@@ -111,6 +111,9 @@ jobs:
           IMAGE_PREFIX="ghcr.io/${OWNER_LC}/pedidos-veloz"
           IMAGE_TAG="${{ github.sha }}"
           
+          # FORÇA O DEPLOYMENT LOCAL A ADOTAR 1 RÉPLICA ANTES DE ATUALIZAR A IMAGEM
+          kubectl apply -f k8s/apps/deployments-services.yaml
+          
           kubectl -n pedidos-veloz set image deployment/gateway \
             gateway="${IMAGE_PREFIX}-gateway:${IMAGE_TAG}"
           kubectl -n pedidos-veloz set image deployment/orders \
