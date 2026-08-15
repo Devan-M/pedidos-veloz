@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: pedidos-veloz
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      # Boas Práticas de Segurança: Força restrição de privilégios a nível de Pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: orders
+        image: pedidos-veloz/orders:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: pedidos-config
+              key: DATABASE_HOST
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: pedidos-secret
+              key: DATABASE_PASSWORD
+        # Probes de Resiliência
+        livenessProbe:      # Verifica se o container travou (se falhar, o K8s reinicia o Pod)
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:     # Verifica se a aplicação está pronta para receber tráfego de usuários
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-service
+  namespace: pedidos-veloz
+spec:
+  selector:
+    app: orders
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
