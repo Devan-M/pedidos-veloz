@@ -5,6 +5,11 @@ metadata:
   namespace: pedidos-veloz
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # Sobe apenas 1 novo pod por vez
+      maxUnavailable: 0    # Garante que nenhum pod antigo caia antes do novo estar pronto
   selector:
     matchLabels:
       app: gateway
@@ -14,6 +19,7 @@ spec:
         app: gateway
         monitoring: "true"
     spec:
+      terminationGracePeriodSeconds: 10 # Força o encerramento rápido se o app ignorar o SIGTERM
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -33,13 +39,13 @@ spec:
           value: "http://inventory:8000"
         livenessProbe:
           httpGet:
-            path: /health  # Sincronizado com seu app real
+            path: /health
             port: 8000
           initialDelaySeconds: 15
           periodSeconds: 20
         readinessProbe:
           httpGet:
-            path: /ready   # Sincronizado com seu app real
+            path: /ready
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 10
@@ -64,6 +70,11 @@ metadata:
   namespace: pedidos-veloz
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: orders
@@ -73,6 +84,7 @@ spec:
         app: orders
         monitoring: "true"
     spec:
+      terminationGracePeriodSeconds: 10
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
