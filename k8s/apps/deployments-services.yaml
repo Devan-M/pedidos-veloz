@@ -4,9 +4,9 @@ metadata:
   name: gateway
   namespace: pedidos-veloz
 spec:
-  replicas: 1 # Otimizado para laboratório local (Evita contenção de memória/CPU)
+  replicas: 1
   strategy:
-    type: Recreate # Derruba o pod antigo e sobe o novo liberando recursos imediatamente
+    type: Recreate
   selector:
     matchLabels:
       app: gateway
@@ -23,11 +23,12 @@ spec:
         fsGroup: 1000
       containers:
       - name: gateway
-        image: ghcr.io/devan-m/pedidos-veloz-gateway:60e35daaece189a7c2e1bb7018fb26f4b1a667e5
+        image: ghcr.io/devan-m/pedidos-veloz-gateway:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         env:
+        # Injeção das variáveis de descoberta de serviço essenciais para o app real inicializar
         - name: ORDERS_URL
           value: "http://orders:8000"
         - name: PAYMENTS_URL
@@ -66,7 +67,7 @@ metadata:
   name: orders
   namespace: pedidos-veloz
 spec:
-  replicas: 1 # Otimizado para laboratório local
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -85,7 +86,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: orders
-        image: pedidos-veloz/orders:v1.0.0
+        image: ghcr.io/devan-m/pedidos-veloz-orders:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
