@@ -1,0 +1,43 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway
+  namespace: pedidos-veloz
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: orders
+  namespace: pedidos-veloz
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: orders
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: inventory
+  namespace: pedidos-veloz
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: inventory
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payments
+  namespace: pedidos-veloz
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: payments

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Pedidos Veloz 🚀
 
 Sistema de Gerenciamento de Pedidos com Arquitetura de Microserviços, Orquestração de Containers e DevOps.
@@ -321,3 +322,6 @@ Para dúvidas ou problemas:
 **Última atualização**: 2026-08-16  
 **Versão**: 1.0.0  
 **Status**: ✅ Funcional
+=======
+# CD testado e funcionando em 2026-08-14T01:49:23Z
+>>>>>>> 0105c3b5ca8000ba7f59ae5d019399115cf180fc
