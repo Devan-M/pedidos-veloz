@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 version: '3.9'
 
 services:
@@ -259,69 +258,3 @@ volumes:
 networks:
   pedidos-network:
     driver: bridge
-=======
-version: '3.8'
-
-networks:
-  pedidos-net:
-    driver: bridge
-
-volumes:
-  postgres_data:
-
-services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: pedidos-db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./services/orders/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    networks:
-      - pedidos-net
-
-  gateway:
-    build:
-      context: ./services/gateway
-      dockerfile: Dockerfile
-    container_name: pedidos-gateway
-    ports:
-      - "8000:8000"
-    environment:
-      - ENV=development
-    networks:
-      - pedidos-net
-
-  orders:
-    build:
-      context: ./services/orders
-      dockerfile: Dockerfile
-    container_name: pedidos-orders
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-    depends_on:
-      - postgres
-    networks:
-      - pedidos-net
-
-  inventory:
-    build:
-      context: ./services/inventory
-      dockerfile: Dockerfile
-    container_name: pedidos-inventory
-    networks:
-      - pedidos-net
-
-  payments:
-    build:
-      context: ./services/payments
-      dockerfile: Dockerfile
-    container_name: pedidos-payments
-    networks:
-      - pedidos-net
->>>>>>> 0105c3b5ca8000ba7f59ae5d019399115cf180fc
