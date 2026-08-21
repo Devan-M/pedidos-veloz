@@ -1,0 +1,22 @@
+# k8s/base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pedidos-veloz
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - secret.yaml
+  - postgresdeployment.yaml
+  - redisdeployment.yaml
+  - rabbitmqdeployment.yaml
+  - apigatewaydeployment.yaml
+  - ordersservicedeployment.yaml
+  - inventoryservicedeployment.yaml
+  - paymentsservicedeployment.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: pedidos-veloz
