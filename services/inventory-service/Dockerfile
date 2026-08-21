@@ -1,7 +1,6 @@
 # Stage 1: Build the application
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache curl
 COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
@@ -15,5 +14,8 @@ COPY --chown=nodejs:nodejs . .
 
 USER nodejs
 EXPOSE 3003
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3003/health || exit 1
 
 CMD ["node", "src/index.js"]

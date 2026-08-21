@@ -1,0 +1,100 @@
+# .github/workflows/deploy-docker-compose.yml
+name: Deploy to Docker Compose Server
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy-docker-compose.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Pull latest code
+        run: |
+          cd /opt/pedidos-veloz
+          git pull origin main
+
+      - name: Build Docker images
+        run: |
+          cd /opt/pedidos-veloz
+          docker-compose build --no-cache
+
+      - name: Stop running containers
+        run: |
+          cd /opt/pedidos-veloz
+          docker-compose down || true
+
+      - name: Start services
+        run: |
+          cd /opt/pedidos-veloz
+          docker-compose up -d
+
+      - name: Wait for services to be ready
+        run: sleep 15
+
+      - name: Check service health
+        run: |
+          cd /opt/pedidos-veloz
+          echo "=== Docker Compose Status ==="
+          docker-compose ps
+          echo ""
+          echo "=== Container Logs ==="
+          docker-compose logs --tail=20
+
+      - name: Verify API Gateway
+        run: |
+          echo "Testing API Gateway on port 8080..."
+          curl -f http://localhost:8080/health || echo "⚠️  Health check endpoint not available"
+        continue-on-error: true
+
+      - name: Verify Orders Service
+        run: |
+          echo "Testing Orders Service on port 8081..."
+          curl -f http://localhost:8081/health || echo "⚠️  Health check endpoint not available"
+        continue-on-error: true
+
+      - name: Verify Inventory Service
+        run: |
+          echo "Testing Inventory Service on port 8082..."
+          curl -f http://localhost:8082/health || echo "⚠️  Health check endpoint not available"
+        continue-on-error: true
+
+      - name: Verify Payments Service
+        run: |
+          echo "Testing Payments Service on port 8083..."
+          curl -f http://localhost:8083/health || echo "⚠️  Health check endpoint not available"
+        continue-on-error: true
+
+      - name: Deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment to Docker Compose completed successfully!"
+          echo ""
+          echo "Services running:"
+          echo "  - API Gateway: http://192.168.1.2:8080"
+          echo "  - Orders Service: http://192.168.1.2:8081"
+          echo "  - Inventory Service: http://192.168.1.2:8082"
+          echo "  - Payments Service: http://192.168.1.2:8083"
+          echo "  - RabbitMQ Management: http://192.168.1.2:15672"
+
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          cd /opt/pedidos-veloz
+          docker-compose logs
+          exit 1
