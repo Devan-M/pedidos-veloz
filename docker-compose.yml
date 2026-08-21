@@ -52,6 +52,105 @@ services:
       timeout: 5s
       retries: 5
 
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: pedidos-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      ORDERS_SERVICE_URL: http://orders-service:3001
+      INVENTORY_SERVICE_URL: http://inventory-service:3003
+      PAYMENTS_SERVICE_URL: http://payments-service:3002
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      orders-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      payments-service:
+        condition: service_started
+    networks:
+      - pedidos-network
+    restart: unless-stopped
+
+  orders-service:
+    build:
+      context: ./services/orders-service
+      dockerfile: Dockerfile
+    container_name: pedidos-orders-service
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - pedidos-network
+    restart: unless-stopped
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+      dockerfile: Dockerfile
+    container_name: pedidos-inventory-service
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - pedidos-network
+    restart: unless-stopped
+
+  payments-service:
+    build:
+      context: ./services/payments-service
+      dockerfile: Dockerfile
+    container_name: pedidos-payments-service
+    ports:
+      - "3002:3002"
+    environment:
+      FLASK_ENV: production
+      FLASK_APP: app.py
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - pedidos-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
