@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pedidos-secrets
+  namespace: pedidos-veloz
+type: Opaque
+stringData:
+  POSTGRES_USER: pedidos_user
+  POSTGRES_PASSWORD: secure_password_123
+  REDIS_PASSWORD: redis_password_123
+  RABBITMQ_DEFAULT_USER: guest
+  RABBITMQ_DEFAULT_PASS: guest
+  JWT_SECRET: your_jwt_secret_key_change_in_production
+  API_KEY: your_api_key_change_in_production
+  GRAFANA_ADMIN_PASSWORD: admin123
