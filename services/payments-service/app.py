@@ -102,7 +102,7 @@ active_payments = Gauge(
 # Health check
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok', 'service': 'payments-service'}), 200
+    return jsonify({'status': 'healthy', 'service': 'payments-service'}), 200
 
 # Readiness check
 @app.route('/ready', methods=['GET'])

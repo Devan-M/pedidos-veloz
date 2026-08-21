@@ -12,7 +12,7 @@ const PORT = process.env.ORDERS_SERVICE_PORT || 3001;
 
 // Logging
 const logger = pinoHttp({
-  level: process.env.LOG_LEVEL || 'info',
+  level: (process.env.LOG_LEVEL || 'info').toLowerCase(),
 });
 
 app.use(logger);
@@ -22,18 +22,19 @@ app.use(express.json());
 const pool = new Pool({
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  host: process.env.POSTGRES_HOST || 'postgres',
+  host: process.env.POSTGRES_HOST || 'pedidos-postgres',
   port: process.env.POSTGRES_PORT || 5432,
   database: process.env.POSTGRES_DB,
 });
 
 // Redis connection
 const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST || 'redis',
-  port: process.env.REDIS_PORT || 6379,
+  socket: {
+    host: process.env.REDIS_HOST || 'pedidos-redis',
+    port: parseInt(process.env.REDIS_PORT) || 6379,
+  },
   password: process.env.REDIS_PASSWORD,
 });
-
 redisClient.on('error', (err) => console.error('Redis error:', err));
 redisClient.connect();
 
@@ -96,7 +97,7 @@ app.get('/metrics', async (req, res) => {
 // Criar pedido
 app.post('/orders', async (req, res) => {
   const start = Date.now();
-  const { customerId, items, totalAmount } = req.body;
+  const { customer_id, items, total_amount } = req.body;
 
   try {
     const orderId = uuidv4();
@@ -108,9 +109,9 @@ app.post('/orders', async (req, res) => {
 
     const result = await pool.query(query, [
       orderId,
-      customerId,
+      customer_id,
       JSON.stringify(items),
-      totalAmount,
+      total_amount,
       'pending',
     ]);
 
@@ -122,8 +123,8 @@ app.post('/orders', async (req, res) => {
         Buffer.from(
           JSON.stringify({
             orderId,
-            customerId,
-            totalAmount,
+            customer_id,
+            total_amount,
             timestamp: new Date().toISOString(),
           })
         )

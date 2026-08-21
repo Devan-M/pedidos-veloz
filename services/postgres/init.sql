@@ -1,0 +1,36 @@
+-- Criar banco de dados
+CREATE DATABASE pedidos_db;
+
+-- Conectar ao banco
+\c pedidos_db
+
+-- Criar tabelas
+CREATE TABLE IF NOT EXISTS orders (
+  id UUID PRIMARY KEY,
+  customer_id VARCHAR(255) NOT NULL,
+  items JSONB NOT NULL,
+  total_amount DECIMAL(10, 2) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY,
+  order_id UUID NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  payment_method VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS inventory (
+  id UUID PRIMARY KEY,
+  sku VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  quantity INT NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

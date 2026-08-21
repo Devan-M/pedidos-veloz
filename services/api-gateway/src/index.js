@@ -12,13 +12,7 @@ const PORT = process.env.API_GATEWAY_PORT || 8080;
 
 // Logging
 const logger = pinoHttp({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-    },
-  },
+  level: (process.env.LOG_LEVEL || 'info').toLowerCase(),
 });
 
 app.use(logger);
@@ -94,60 +88,60 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Proxy para Orders Service
-app.use('/api/orders', async (req, res) => {
-  try {
-    const response = await axios({
-      method: req.method,
-      url: `http://orders-service:3001${req.url}`,
-      data: req.body,
-      headers: req.headers,
-      timeout: 10000,
+app.use('/api/orders', (req, res) => {
+  const path = req.url === '/' ? '' : req.url;
+  axios({
+    method: req.method,
+    url: `http://orders-service:3001/orders${path}`,
+    data: req.body,
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 10000,
+  })
+    .then(response => res.status(response.status).json(response.data))
+    .catch(error => {
+      res.status(error.response?.status || 500).json({
+        error: 'Erro ao acessar Orders Service',
+        message: error.message,
+      });
     });
-    res.status(response.status).json(response.data);
-  } catch (error) {
-    res.status(error.response?.status || 500).json({
-      error: 'Erro ao acessar Orders Service',
-      message: error.message,
-    });
-  }
 });
 
 // Proxy para Inventory Service
-app.use('/api/inventory', async (req, res) => {
-  try {
-    const response = await axios({
-      method: req.method,
-      url: `http://inventory-service:3003${req.url}`,
-      data: req.body,
-      headers: req.headers,
-      timeout: 10000,
+app.use('/api/inventory', (req, res) => {
+  const path = req.url === '/' ? '' : req.url;
+  axios({
+    method: req.method,
+    url: `http://inventory-service:3003/products${path}`,
+    data: req.body,
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 10000,
+  })
+    .then(response => res.status(response.status).json(response.data))
+    .catch(error => {
+      res.status(error.response?.status || 500).json({
+        error: 'Erro ao acessar Inventory Service',
+        message: error.message,
+      });
     });
-    res.status(response.status).json(response.data);
-  } catch (error) {
-    res.status(error.response?.status || 500).json({
-      error: 'Erro ao acessar Inventory Service',
-      message: error.message,
-    });
-  }
 });
 
 // Proxy para Payments Service
-app.use('/api/payments', async (req, res) => {
-  try {
-    const response = await axios({
-      method: req.method,
-      url: `http://payments-service:3002${req.url}`,
-      data: req.body,
-      headers: req.headers,
-      timeout: 10000,
+app.use('/api/payments', (req, res) => {
+  const path = req.url === '/' ? '' : req.url;
+  axios({
+    method: req.method,
+    url: `http://payments-service:3002/payments${path}`,
+    data: req.body,
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 10000,
+  })
+    .then(response => res.status(response.status).json(response.data))
+    .catch(error => {
+      res.status(error.response?.status || 500).json({
+        error: 'Erro ao acessar Payments Service',
+        message: error.message,
+      });
     });
-    res.status(response.status).json(response.data);
-  } catch (error) {
-    res.status(error.response?.status || 500).json({
-      error: 'Erro ao acessar Payments Service',
-      message: error.message,
-    });
-  }
 });
 
 // Rota raiz

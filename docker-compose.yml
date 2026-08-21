@@ -1,7 +1,6 @@
 version: '3.9'
 
 services:
-  # PostgreSQL - Banco de dados principal
   postgres:
     image: postgres:16-alpine
     container_name: pedidos-postgres
@@ -12,9 +11,10 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
+      - ./services/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,17 +22,16 @@ services:
       - pedidos-network
     restart: unless-stopped
 
-  # Redis - Cache
   redis:
     image: redis:7-alpine
     container_name: pedidos-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --bind 0.0.0.0
     ports:
       - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +39,6 @@ services:
       - pedidos-network
     restart: unless-stopped
 
-  # RabbitMQ - Message Queue
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: pedidos-rabbitmq
@@ -61,7 +59,6 @@ services:
       - pedidos-network
     restart: unless-stopped
 
-  # API Gateway
   api-gateway:
     build:
       context: ./services/api-gateway
@@ -76,22 +73,15 @@ services:
       - "${API_GATEWAY_PORT}:8080"
     depends_on:
       orders-service:
-        condition: service_healthy
+        condition: service_started
       inventory-service:
-        condition: service_healthy
+        condition: service_started
       payments-service:
-        condition: service_healthy
+        condition: service_started
     networks:
       - pedidos-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
 
-  # Orders Service
   orders-service:
     build:
       context: ./services/orders-service
@@ -102,37 +92,30 @@ services:
       ORDERS_SERVICE_PORT: ${ORDERS_SERVICE_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: pedidos-postgres
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_DB: ${POSTGRES_DB}
-      REDIS_HOST: redis
+      REDIS_HOST: pedidos-redis
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: pedidos-rabbitmq
       LOG_LEVEL: ${LOG_LEVEL}
       APP_VERSION: ${APP_VERSION}
     ports:
       - "${ORDERS_SERVICE_PORT}:3001"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - pedidos-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
 
-  # Inventory Service
   inventory-service:
     build:
       context: ./services/inventory-service
@@ -143,10 +126,10 @@ services:
       INVENTORY_SERVICE_PORT: ${INVENTORY_SERVICE_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: pedidos-postgres
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_DB: ${POSTGRES_DB}
-      REDIS_HOST: redis
+      REDIS_HOST: pedidos-redis
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       LOG_LEVEL: ${LOG_LEVEL}
@@ -155,20 +138,13 @@ services:
       - "${INVENTORY_SERVICE_PORT}:3003"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
     networks:
       - pedidos-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
 
-  # Payments Service
   payments-service:
     build:
       context: ./services/payments-service
@@ -179,37 +155,30 @@ services:
       PAYMENTS_SERVICE_PORT: ${PAYMENTS_SERVICE_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: pedidos-postgres
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_DB: ${POSTGRES_DB}
-      REDIS_HOST: redis
+      REDIS_HOST: pedidos-redis
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: pedidos-rabbitmq
       LOG_LEVEL: ${LOG_LEVEL}
       APP_VERSION: ${APP_VERSION}
     ports:
       - "${PAYMENTS_SERVICE_PORT}:3002"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
     networks:
       - pedidos-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
 
-  # Prometheus - Métricas
   prometheus:
     image: prom/prometheus:latest
     container_name: pedidos-prometheus
@@ -230,7 +199,6 @@ services:
       - pedidos-network
     restart: unless-stopped
 
-  # Grafana - Dashboards
   grafana:
     image: grafana/grafana:latest
     container_name: pedidos-grafana

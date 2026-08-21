@@ -11,7 +11,7 @@ const PORT = process.env.INVENTORY_SERVICE_PORT || 3003;
 
 // Logging
 const logger = pinoHttp({
-  level: process.env.LOG_LEVEL || 'info',
+  level: (process.env.LOG_LEVEL || 'info').toLowerCase(),
 });
 
 app.use(logger);
@@ -28,8 +28,10 @@ const pool = new Pool({
 
 // Redis connection
 const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST || 'redis',
-  port: process.env.REDIS_PORT || 6379,
+  socket: {
+    host: process.env.REDIS_HOST || 'pedidos-redis',
+    port: parseInt(process.env.REDIS_PORT) || 6379,
+  },
   password: process.env.REDIS_PASSWORD,
 });
 
