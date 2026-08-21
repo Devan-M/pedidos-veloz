@@ -1,0 +1,29 @@
+name: Test Self-Hosted Runner
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check system info
+        run: |
+          echo "🖥️  System Info"
+          uname -a
+          echo ""
+          echo "📦 Docker"
+          docker --version
+          echo ""
+          echo "🐍 Python"
+          python3 --version
+          echo ""
+          echo "📟 Node.js"
+          node --version
+          echo ""
+          echo "✅ Runner is working!"
