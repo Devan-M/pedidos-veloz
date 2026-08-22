@@ -16,7 +16,6 @@ resources:
   - inventoryservicedeployment.yaml
   - paymentsservicedeployment.yaml
   - ingress.yaml
-  # Observabilidade
   - ../observability/prometheusrbac.yaml
   - ../observability/prometheusconfigmap.yaml
   - ../observability/prometheusdeployment.yaml
