@@ -53,7 +53,7 @@ sudo apt-get remove -y docker-compose-v2 || true
 print_success "Conflitos removidos"
 
 # 4. Instalar Docker
-print_step "Instalando Docker..."
+print_step "Instalar Docker..."
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 echo \
   "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
@@ -75,35 +75,44 @@ docker --version
 docker-compose --version
 print_success "Docker verificado"
 
-# 7. Instalar Node.js 20
+# 7. Instalar Kubernetes (kubeadm, kubelet, kubectl)
+print_step "Instalando Kubernetes..."
+sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+print_success "Kubernetes instalado"
+
+# 8. Instalar Node.js 20
 print_step "Instalando Node.js 20..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 print_success "Node.js $(node --version) instalado"
 
-# 8. Python já está instalado
+# 9. Python já está instalado
 print_step "Verificando Python..."
 PYTHON_VERSION=$(python3 --version)
 print_success "Python $PYTHON_VERSION já instalado"
 
-# 9. Instalar pip e venv
+# 10. Instalar pip e venv
 print_step "Instalando pip e venv..."
 sudo apt-get install -y python3-pip python3-venv
 print_success "pip e venv instalados"
 
-# 10. Instalar Git
+# 11. Instalar Git
 print_step "Configurando Git..."
 git config --global user.name "GitHub Actions" || true
 git config --global user.email "actions@github.com" || true
 print_success "Git configurado"
 
-# 11. Criar diretório para aplicação
+# 12. Criar diretório para aplicação
 print_step "Criando diretório da aplicação..."
 sudo mkdir -p /opt/pedidos-veloz
 sudo chown $USER:$USER /opt/pedidos-veloz
 print_success "Diretório criado em /opt/pedidos-veloz"
 
-# 12. Instalar GitHub Actions Runner
+# 13. Instalar GitHub Actions Runner
 print_step "Instalando GitHub Actions Self-Hosted Runner..."
 cd /opt/pedidos-veloz
 
@@ -120,12 +129,12 @@ rm actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
 
 print_success "GitHub Actions Runner baixado"
 
-# 13. Instalar dependências do runner
+# 14. Instalar dependências do runner
 print_step "Instalando dependências do runner..."
 sudo ./bin/installdependencies.sh
 print_success "Dependências do runner instaladas"
 
-# 14. Criar serviço systemd para o runner
+# 15. Criar serviço systemd para o runner
 print_step "Configurando runner como serviço..."
 sudo tee /etc/systemd/system/actions-runner.service > /dev/null <<EOF
 [Unit]
@@ -148,7 +157,7 @@ EOF
 sudo systemctl daemon-reload
 print_success "Serviço systemd configurado"
 
-# 15. Criar docker-compose para infraestrutura
+# 16. Criar docker-compose para infraestrutura
 print_step "Criando docker-compose para infraestrutura..."
 cat > /opt/pedidos-veloz/docker-compose.yml <<'DOCKER_EOF'
 version: '3.8'
@@ -219,19 +228,33 @@ DOCKER_EOF
 
 print_success "docker-compose.yml criado"
 
-# 16. Iniciar infraestrutura
+# 17. Iniciar infraestrutura
 print_step "Iniciando infraestrutura (PostgreSQL, Redis, RabbitMQ)..."
 cd /opt/pedidos-veloz
 docker-compose up -d
 print_success "Infraestrutura iniciada"
 
-# 17. Aguardar serviços ficarem prontos
+# 18. Aguardar serviços ficarem prontos
 print_step "Aguardando serviços ficarem prontos..."
 sleep 10
 docker-compose ps
 print_success "Serviços prontos"
 
-# 18. Criar script de deploy
+# 19. Instalar NGINX Ingress Controller
+print_step "Instalando NGINX Ingress Controller..."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
+
+# Aguardar NGINX Ingress Controller ficar pronto
+print_step "Aguardando NGINX Ingress Controller ficar pronto..."
+sleep 30
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=300s || print_warning "NGINX Ingress Controller ainda está sendo iniciado, continue monitorando"
+
+print_success "NGINX Ingress Controller instalado"
+
+# 20. Criar script de deploy
 print_step "Criando script de deploy..."
 cat > /opt/pedidos-veloz/deploy.sh <<'DEPLOY_EOF'
 #!/bin/bash
@@ -253,21 +276,22 @@ else
     git clone https://github.com/Devan-M/pedidos-veloz.git
 fi
 
-# Parar containers antigos
-echo "🛑 Parando containers antigos..."
-docker-compose -f pedidos-veloz/docker-compose.yml down || true
-
-# Iniciar novos containers
-echo "🚀 Iniciando novos containers..."
-docker-compose -f pedidos-veloz/docker-compose.yml up -d
+# Deploy com Kustomize
+echo "🚀 Deployando aplicação no Kubernetes..."
+kubectl apply -k pedidos-veloz/k8s/base/
 
 echo "✅ Deploy concluído!"
+echo ""
+echo "📋 Verificar status:"
+echo "   kubectl get pods -n pedidos-veloz"
+echo "   kubectl get svc -n pedidos-veloz"
+echo "   kubectl get ingress -n pedidos-veloz"
 DEPLOY_EOF
 
 chmod +x /opt/pedidos-veloz/deploy.sh
 print_success "Script de deploy criado"
 
-# 19. Criar arquivo de configuração
+# 21. Criar arquivo de configuração
 print_step "Criando arquivo de configuração..."
 cat > /opt/pedidos-veloz/.env <<'ENV_EOF'
 NODE_ENV=production
@@ -294,7 +318,7 @@ ENV_EOF
 
 print_success "Arquivo .env criado"
 
-# 20. Resumo final
+# 22. Resumo final
 echo ""
 echo "==========================================="
 print_success "Setup concluído com sucesso!"
@@ -313,8 +337,20 @@ echo ""
 echo "3️⃣  Verificar status:"
 echo "   sudo systemctl status actions-runner"
 echo "   docker-compose -f /opt/pedidos-veloz/docker-compose.yml ps"
+echo "   kubectl get pods -n ingress-nginx"
 echo ""
-echo "4️⃣  Acessar RabbitMQ Management:"
+echo "4️⃣  Obter IP do Ingress:"
+echo "   kubectl get svc -n ingress-nginx ingress-nginx-controller"
+echo ""
+echo "5️⃣  Configurar /etc/hosts (adicione a linha com o IP do Ingress):"
+echo "   <IP_DO_INGRESS> api.pedidos-veloz.local"
+echo "   <IP_DO_INGRESS> grafana.pedidos-veloz.local"
+echo "   <IP_DO_INGRESS> prometheus.pedidos-veloz.local"
+echo ""
+echo "6️⃣  Fazer deploy da aplicação:"
+echo "   /opt/pedidos-veloz/deploy.sh"
+echo ""
+echo "7️⃣  Acessar RabbitMQ Management:"
 echo "   http://192.168.1.2:15672 (guest/guest)"
 echo ""
 echo "📁 Diretórios importantes:"

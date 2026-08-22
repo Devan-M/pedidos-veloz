@@ -1,4 +1,3 @@
-# k8s/base/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -16,6 +15,12 @@ resources:
   - ordersservicedeployment.yaml
   - inventoryservicedeployment.yaml
   - paymentsservicedeployment.yaml
+  - ingress.yaml
+  # Observabilidade
+  - ../observability/prometheusrbac.yaml
+  - ../observability/prometheusconfigmap.yaml
+  - ../observability/prometheusdeployment.yaml
+  - ../observability/grafanadeployment.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize

@@ -176,7 +176,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  type: LoadBalancer
+  type: ClusterIP  # Mudou de LoadBalancer
   selector:
     app: api-gateway
   ports:
