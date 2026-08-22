@@ -95,6 +95,31 @@ spec:
             configMapKeyRef:
               name: pedidos-config
               key: APP_VERSION
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: pedidos-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: pedidos-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: pedidos-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: pedidos-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pedidos-secrets
+              key: POSTGRES_PASSWORD
         livenessProbe:
           httpGet:
             path: /health
