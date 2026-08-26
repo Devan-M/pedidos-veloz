@@ -264,13 +264,13 @@ print_success "Git configurado"
 
 print_step "Criando diretório da aplicação..."
 
-sudo mkdir -p /opt/pedidos-veloz \
+sudo mkdir -p /pedidos-veloz \
     || handle_error "Falha ao criar diretório"
 
-sudo chown "$USER:$USER" /opt/pedidos-veloz \
+sudo chown "$USER:$USER" /pedidos-veloz \
     || handle_error "Falha ao alterar proprietário do diretório"
 
-print_success "Diretório criado em /opt/pedidos-veloz"
+print_success "Diretório criado em /pedidos-veloz"
 
 # ============================================================
 # 12. GITHUB ACTIONS RUNNER
@@ -278,7 +278,7 @@ print_success "Diretório criado em /opt/pedidos-veloz"
 
 print_step "Configurando GitHub Actions Self-Hosted Runner..."
 
-cd /opt/pedidos-veloz
+cd /pedidos-veloz
 
 mkdir -p runner
 cd runner
@@ -337,8 +337,8 @@ Requires=docker.service
 [Service]
 Type=simple
 User=$USER
-WorkingDirectory=/opt/pedidos-veloz/runner
-ExecStart=/opt/pedidos-veloz/runner/run.sh
+WorkingDirectory=/pedidos-veloz/runner
+ExecStart=/pedidos-veloz/runner/run.sh
 Restart=always
 RestartSec=10
 
@@ -357,7 +357,7 @@ print_success "Serviço systemd configurado"
 
 print_step "Criando docker-compose.yml..."
 
-cat > /opt/pedidos-veloz/docker-compose.yml <<'DOCKER_EOF'
+cat > /pedidos-veloz/docker-compose.yml <<'DOCKER_EOF'
 services:
 
   # ============================================================
@@ -685,7 +685,7 @@ print_success "docker-compose.yml criado"
 
 print_step "Iniciando infraestrutura..."
 
-cd /opt/pedidos-veloz
+cd /pedidos-veloz
 
 docker compose up -d \
     || handle_error "Falha ao iniciar infraestrutura"
@@ -753,14 +753,14 @@ print_success "NGINX Ingress Controller instalado"
 
 print_step "Criando script de deploy..."
 
-cat > /opt/pedidos-veloz/deploy.sh <<'DEPLOY_EOF'
+cat > /pedidos-veloz/deploy.sh <<'DEPLOY_EOF'
 #!/bin/bash
 
 set -e
 
 echo "🚀 Iniciando deploy..."
 
-cd /opt/pedidos-veloz
+cd /pedidos-veloz
 
 if [ -d "pedidos-veloz/.git" ]; then
 
@@ -797,7 +797,7 @@ echo "   kubectl get ingress -n pedidos-veloz"
 
 DEPLOY_EOF
 
-chmod +x /opt/pedidos-veloz/deploy.sh
+chmod +x /pedidos-veloz/deploy.sh
 
 print_success "Script de deploy criado"
 
@@ -807,7 +807,7 @@ print_success "Script de deploy criado"
 
 print_step "Criando arquivo .env..."
 
-cat > /opt/pedidos-veloz/.env <<'ENV_EOF'
+cat > /pedidos-veloz/.env <<'ENV_EOF'
 NODE_ENV=production
 FLASK_ENV=production
 
@@ -841,7 +841,7 @@ PAYMENTS_SERVICE_PORT=3002
 LOG_LEVEL=info
 ENV_EOF
 
-chmod 600 /opt/pedidos-veloz/.env
+chmod 600 /pedidos-veloz/.env
 
 print_success "Arquivo .env criado"
 
@@ -859,7 +859,7 @@ echo "📋 Próximos passos:"
 echo ""
 
 echo "1️⃣ Registrar o runner no GitHub:"
-echo "   cd /opt/pedidos-veloz/runner"
+echo "   cd /pedidos-veloz/runner"
 echo "   ./config.sh --url https://github.com/Devan-M/pedidos-veloz --token <SEU_TOKEN>"
 echo ""
 
@@ -870,7 +870,7 @@ echo ""
 
 echo "3️⃣ Verificar status:"
 echo "   sudo systemctl status actions-runner"
-echo "   docker compose -f /opt/pedidos-veloz/docker-compose.yml ps"
+echo "   docker compose -f /pedidos-veloz/docker-compose.yml ps"
 echo "   kubectl get pods -n ingress-nginx"
 echo ""
 
@@ -883,7 +883,7 @@ echo "   kubectl get svc -n ingress-nginx ingress-nginx-controller"
 echo ""
 
 echo "6️⃣ Fazer deploy:"
-echo "   /opt/pedidos-veloz/deploy.sh"
+echo "   /pedidos-veloz/deploy.sh"
 echo ""
 
 echo "7️⃣ RabbitMQ Management:"
@@ -893,9 +893,9 @@ echo "   senha: guest"
 echo ""
 
 echo "📁 Diretórios:"
-echo "   - Aplicação: /opt/pedidos-veloz"
-echo "   - Runner: /opt/pedidos-veloz/runner"
-echo "   - Repositório: /opt/pedidos-veloz/pedidos-veloz"
+echo "   - Aplicação: /pedidos-veloz"
+echo "   - Runner: /pedidos-veloz/runner"
+echo "   - Repositório: /pedidos-veloz/pedidos-veloz"
 echo ""
 
 echo "🔍 Troubleshooting:"

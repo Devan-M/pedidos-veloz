@@ -25,22 +25,22 @@ jobs:
 
       - name: Pull latest code
         run: |
-          cd /opt/pedidos-veloz
+          cd /pedidos-veloz
           git pull origin main
 
       - name: Build Docker images
         run: |
-          cd /opt/pedidos-veloz
+          cd /pedidos-veloz
           docker-compose build --no-cache
 
       - name: Stop running containers
         run: |
-          cd /opt/pedidos-veloz
+          cd /pedidos-veloz
           docker-compose down || true
 
       - name: Start services
         run: |
-          cd /opt/pedidos-veloz
+          cd /pedidos-veloz
           docker-compose up -d
 
       - name: Wait for services to be ready
@@ -48,7 +48,7 @@ jobs:
 
       - name: Check service health
         run: |
-          cd /opt/pedidos-veloz
+          cd /pedidos-veloz
           echo "=== Docker Compose Status ==="
           docker-compose ps
           echo ""
@@ -95,6 +95,6 @@ jobs:
         if: failure()
         run: |
           echo "❌ Deployment failed!"
-          cd /opt/pedidos-veloz
+          cd /pedidos-veloz
           docker-compose logs
           exit 1

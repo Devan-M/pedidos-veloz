@@ -64,3 +64,5 @@ kubeconfig
 # Logs
 logs/
 *.log
+# GitHub Actions Self-Hosted Runner
+runner/
