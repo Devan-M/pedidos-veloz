@@ -29,7 +29,7 @@ spec:
       serviceAccountName: pedidos-sa
       containers:
       - name: orders-service
-        image: pedidos-veloz/orders-service:latest
+        image: pedidos-veloz-orders-service:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3001

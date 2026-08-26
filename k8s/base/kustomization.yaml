@@ -9,17 +9,14 @@ resources:
   - configmap.yaml
   - secret.yaml
   - postgresdeployment.yaml
-  - redisdeployment.yaml
-  - rabbitmqdeployment.yaml
-  - apigatewaydeployment.yaml
-  - ordersservicedeployment.yaml
-  - inventoryservicedeployment.yaml
-  - paymentsservicedeployment.yaml
+  - redis-deployment.yaml
+  - rabbitmq-deployment.yaml
+  - api-gateway-deployment.yaml
+  - orders-service-deployment.yaml
+  - inventory-service-deployment.yaml
+  - payments-service-deployment.yaml
   - ingress.yaml
-  - ../observability/prometheusrbac.yaml
-  - ../observability/prometheusconfigmap.yaml
-  - ../observability/prometheusdeployment.yaml
-  - ../observability/grafanadeployment.yaml
+  - ../observability
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize

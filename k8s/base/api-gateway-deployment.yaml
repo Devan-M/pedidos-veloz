@@ -30,7 +30,7 @@ spec:
       serviceAccountName: pedidos-sa
       containers:
       - name: api-gateway
-        image: pedidos-veloz/api-gateway:latest
+        image: pedidos-veloz-api-gateway:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

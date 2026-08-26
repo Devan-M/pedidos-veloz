@@ -29,7 +29,7 @@ spec:
       serviceAccountName: pedidos-sa
       containers:
       - name: payments-service
-        image: pedidos-veloz/payments-service:latest
+        image: pedidos-veloz-payments-service:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3002
