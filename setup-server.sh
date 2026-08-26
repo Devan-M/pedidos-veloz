@@ -5,13 +5,20 @@ set -e
 echo "🚀 Iniciando setup do servidor Ubuntu..."
 echo "==========================================="
 
-# Cores para output
+# ============================================================
+# CORES
+# ============================================================
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'
+NC='\033[0m'
 
-# Função para imprimir com cor
+# ============================================================
+# FUNÇÕES
+# ============================================================
+
 print_step() {
     echo -e "${BLUE}→ $1${NC}"
 }
@@ -24,14 +31,35 @@ print_warning() {
     echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
-# 1. Atualizar sistema
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+handle_error() {
+    print_error "$1"
+    exit 1
+}
+
+# ============================================================
+# 1. ATUALIZAR SISTEMA
+# ============================================================
+
 print_step "Atualizando sistema..."
-sudo apt-get update
-sudo apt-get upgrade -y
+
+sudo apt-get update \
+    || handle_error "Falha ao atualizar repositórios"
+
+sudo apt-get upgrade -y \
+    || handle_error "Falha ao fazer upgrade do sistema"
+
 print_success "Sistema atualizado"
 
-# 2. Instalar dependências básicas
+# ============================================================
+# 2. DEPENDÊNCIAS BÁSICAS
+# ============================================================
+
 print_step "Instalando dependências básicas..."
+
 sudo apt-get install -y \
     curl \
     wget \
@@ -44,105 +72,262 @@ sudo apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
-    software-properties-common
+    software-properties-common \
+    net-tools \
+    htop \
+    python3-pip \
+    python3-venv \
+    || handle_error "Falha ao instalar dependências básicas"
+
 print_success "Dependências instaladas"
 
-# 3. Remover docker-compose-v2 se existir (conflita com docker-compose-plugin)
-print_step "Removendo conflitos de docker-compose..."
-sudo apt-get remove -y docker-compose-v2 || true
-print_success "Conflitos removidos"
+# ============================================================
+# 3. LIMPAR REPOSITÓRIOS ANTIGOS
+# ============================================================
 
-# 4. Instalar Docker
-print_step "Instalar Docker..."
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo \
-  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo usermod -aG docker $USER
-print_success "Docker instalado"
+print_step "Limpando repositórios antigos..."
 
-# 5. Instalar Docker Compose (standalone)
-print_step "Instalando Docker Compose standalone..."
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-print_success "Docker Compose instalado"
+sudo rm -f /etc/apt/sources.list.d/docker.list
+sudo rm -f /etc/apt/sources.list.d/kubernetes.list
+sudo rm -f /etc/apt/sources.list.d/node*.list
 
-# 6. Verificar Docker
+sudo rm -f /usr/share/keyrings/docker-archive-keyring.gpg
+sudo rm -f /usr/share/keyrings/kubernetes-archive-keyring.gpg
+sudo rm -f /usr/share/keyrings/kubernetes-apt-keyring.gpg
+
+print_success "Repositórios antigos removidos"
+
+# ============================================================
+# 4. DOCKER
+# ============================================================
+
+print_step "Instalando/configurando Docker..."
+
+if ! command -v docker >/dev/null 2>&1; then
+
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+        | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+        || handle_error "Falha ao adicionar chave GPG do Docker"
+
+    echo \
+        "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" \
+        | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null \
+        || handle_error "Falha ao adicionar repositório Docker"
+
+    sudo apt-get update \
+        || handle_error "Falha ao atualizar repositórios do Docker"
+
+    sudo apt-get install -y \
+        docker-ce \
+        docker-ce-cli \
+        containerd.io \
+        docker-compose-plugin \
+        || handle_error "Falha ao instalar Docker"
+
+    print_success "Docker instalado"
+
+else
+    print_warning "Docker já está instalado: $(docker --version)"
+fi
+
+sudo usermod -aG docker "$USER" 2>/dev/null || true
+
+# ============================================================
+# 5. DOCKER COMPOSE
+# ============================================================
+
+print_step "Configurando Docker Compose..."
+
+if ! command -v docker-compose >/dev/null 2>&1; then
+
+    DOCKER_COMPOSE_VERSION=$(curl -s \
+        https://api.github.com/repos/docker/compose/releases/latest \
+        | grep '"tag_name"' \
+        | cut -d'"' -f4)
+
+    if [ -z "$DOCKER_COMPOSE_VERSION" ]; then
+        handle_error "Não foi possível obter a versão do Docker Compose"
+    fi
+
+    sudo curl -L \
+        "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" \
+        -o /usr/local/bin/docker-compose \
+        || handle_error "Falha ao baixar Docker Compose"
+
+    sudo chmod +x /usr/local/bin/docker-compose \
+        || handle_error "Falha ao configurar permissão do Docker Compose"
+
+    print_success "Docker Compose instalado"
+
+else
+    print_warning "Docker Compose já está instalado: $(docker-compose --version)"
+fi
+
+# ============================================================
+# 6. VERIFICAR DOCKER
+# ============================================================
+
 print_step "Verificando Docker..."
-docker --version
-docker-compose --version
+
+docker --version \
+    || handle_error "Docker não está funcionando"
+
+if docker compose version >/dev/null 2>&1; then
+    docker compose version
+fi
+
+if docker-compose --version >/dev/null 2>&1; then
+    docker-compose --version
+fi
+
 print_success "Docker verificado"
 
-# 7. Instalar Kubernetes (kubeadm, kubelet, kubectl) - Novo repositório
-print_step "Instalando Kubernetes..."
+# ============================================================
+# 7. KUBERNETES
+# ============================================================
 
-# Adicionar a chave GPG do novo repositório
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg
+print_step "Instalando/configurando Kubernetes..."
 
-# Adicionar o repositório
-echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+if ! command -v kubectl >/dev/null 2>&1; then
 
-# Atualizar e instalar
-sudo apt-get update
-sudo apt-get install -y kubelet kubeadm kubectl
-sudo apt-mark hold kubelet kubeadm kubectl
+    curl -fsSL \
+        https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key \
+        | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg \
+        || handle_error "Falha ao adicionar chave GPG do Kubernetes"
 
-print_success "Kubernetes instalado"
+    echo \
+        'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' \
+        | sudo tee /etc/apt/sources.list.d/kubernetes.list > /dev/null \
+        || handle_error "Falha ao adicionar repositório Kubernetes"
 
-# 8. Instalar Node.js 20
-print_step "Instalando Node.js 20..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-print_success "Node.js $(node --version) instalado"
+    sudo apt-get update \
+        || handle_error "Falha ao atualizar repositórios Kubernetes"
 
-# 9. Python já está instalado
+    sudo apt-get install -y kubelet kubeadm kubectl \
+        || handle_error "Falha ao instalar Kubernetes"
+
+    sudo apt-mark hold kubelet kubeadm kubectl \
+        || handle_error "Falha ao marcar pacotes Kubernetes"
+
+    print_success "Kubernetes instalado"
+
+else
+    print_warning "kubectl já está instalado"
+fi
+
+# ============================================================
+# 8. NODE.JS 20
+# ============================================================
+
+print_step "Instalando/configurando Node.js 20..."
+
+if ! command -v node >/dev/null 2>&1; then
+
+    curl -fsSL https://deb.nodesource.com/setup_20.x \
+        | sudo -E bash - \
+        || handle_error "Falha ao configurar Node.js"
+
+    sudo apt-get install -y nodejs \
+        || handle_error "Falha ao instalar Node.js"
+
+    print_success "Node.js $(node --version) instalado"
+
+else
+    print_warning "Node.js já instalado: $(node --version)"
+fi
+
+# ============================================================
+# 9. PYTHON
+# ============================================================
+
 print_step "Verificando Python..."
-PYTHON_VERSION=$(python3 --version)
-print_success "Python $PYTHON_VERSION já instalado"
 
-# 10. Instalar pip e venv
-print_step "Instalando pip e venv..."
-sudo apt-get install -y python3-pip python3-venv
-print_success "pip e venv instalados"
+PYTHON_VERSION=$(python3 --version 2>&1)
 
-# 11. Instalar Git
+print_success "Python $PYTHON_VERSION disponível"
+
+# ============================================================
+# 10. GIT
+# ============================================================
+
 print_step "Configurando Git..."
-git config --global user.name "GitHub Actions" || true
-git config --global user.email "actions@github.com" || true
+
+git config --global user.name "GitHub Actions" 2>/dev/null || true
+git config --global user.email "actions@github.com" 2>/dev/null || true
+
 print_success "Git configurado"
 
-# 12. Criar diretório para aplicação
+# ============================================================
+# 11. DIRETÓRIO DA APLICAÇÃO
+# ============================================================
+
 print_step "Criando diretório da aplicação..."
-sudo mkdir -p /opt/pedidos-veloz
-sudo chown $USER:$USER /opt/pedidos-veloz
+
+sudo mkdir -p /opt/pedidos-veloz \
+    || handle_error "Falha ao criar diretório"
+
+sudo chown "$USER:$USER" /opt/pedidos-veloz \
+    || handle_error "Falha ao alterar proprietário do diretório"
+
 print_success "Diretório criado em /opt/pedidos-veloz"
 
-# 13. Instalar GitHub Actions Runner
-print_step "Instalando GitHub Actions Self-Hosted Runner..."
+# ============================================================
+# 12. GITHUB ACTIONS RUNNER
+# ============================================================
+
+print_step "Configurando GitHub Actions Self-Hosted Runner..."
+
 cd /opt/pedidos-veloz
 
-# Criar diretório para runner
 mkdir -p runner
 cd runner
 
-# Download latest runner
-RUNNER_VERSION=$(curl -s https://api.github.com/repos/actions/runner/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/v//')
+print_step "Obtendo versão mais recente do runner..."
+
+RUNNER_VERSION=$(curl -s \
+    https://api.github.com/repos/actions/runner/releases/latest \
+    | grep '"tag_name"' \
+    | cut -d'"' -f4 \
+    | sed 's/^v//' \
+    | head -1)
+
+if [ -z "$RUNNER_VERSION" ]; then
+    handle_error "Falha ao obter versão do GitHub Actions Runner"
+fi
+
 print_step "Baixando runner versão $RUNNER_VERSION..."
-wget https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
-tar xzf actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
-rm actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz
+
+wget \
+    "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz" \
+    || handle_error "Falha ao baixar runner"
+
+tar xzf \
+    "actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz" \
+    || handle_error "Falha ao extrair runner"
+
+rm -f \
+    "actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
 
 print_success "GitHub Actions Runner baixado"
 
-# 14. Instalar dependências do runner
+# ============================================================
+# 13. DEPENDÊNCIAS DO RUNNER
+# ============================================================
+
 print_step "Instalando dependências do runner..."
-sudo ./bin/installdependencies.sh
+
+sudo ./bin/installdependencies.sh \
+    || handle_error "Falha ao instalar dependências do runner"
+
 print_success "Dependências do runner instaladas"
 
-# 15. Criar serviço systemd para o runner
+# ============================================================
+# 14. SERVIÇO SYSTEMD DO RUNNER
+# ============================================================
+
 print_step "Configurando runner como serviço..."
+
 sudo tee /etc/systemd/system/actions-runner.service > /dev/null <<EOF
 [Unit]
 Description=GitHub Actions Runner
@@ -161,72 +346,331 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl daemon-reload
+sudo systemctl daemon-reload \
+    || handle_error "Falha ao recarregar systemd"
+
 print_success "Serviço systemd configurado"
 
-# 16. Criar docker-compose para infraestrutura
-print_step "Criando docker-compose para infraestrutura..."
-cat > /opt/pedidos-veloz/docker-compose.yml <<'DOCKER_EOF'
-version: '3.8'
+# ============================================================
+# 15. DOCKER COMPOSE DA INFRAESTRUTURA
+# ============================================================
 
+print_step "Criando docker-compose.yml..."
+
+cat > /opt/pedidos-veloz/docker-compose.yml <<'DOCKER_EOF'
 services:
+
+  # ============================================================
+  # PostgreSQL
+  # ============================================================
+
   postgres:
     image: postgres:15-alpine
     container_name: pedidos-postgres
+
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
       POSTGRES_DB: pedidos_veloz
+
     ports:
       - "5432:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     networks:
       - pedidos-network
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U pedidos_user -d pedidos_veloz"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+    restart: unless-stopped
+
+  # ============================================================
+  # Redis
+  # ============================================================
+
   redis:
     image: redis:7-alpine
     container_name: pedidos-redis
+
     ports:
       - "6379:6379"
+
     volumes:
       - redis_data:/data
+
     networks:
       - pedidos-network
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+    restart: unless-stopped
+
+  # ============================================================
+  # RabbitMQ
+  # ============================================================
+
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: pedidos-rabbitmq
+
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+
     ports:
       - "5672:5672"
       - "15672:15672"
+
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
     networks:
       - pedidos-network
+
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+    restart: unless-stopped
+
+  # ============================================================
+  # API Gateway
+  # ============================================================
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+
+    container_name: pedidos-api-gateway
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      NODE_ENV: production
+
+      ORDERS_SERVICE_URL: http://orders-service:3001
+      INVENTORY_SERVICE_URL: http://inventory-service:3003
+      PAYMENTS_SERVICE_URL: http://payments-service:3002
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: info
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+      orders-service:
+        condition: service_started
+
+      inventory-service:
+        condition: service_started
+
+      payments-service:
+        condition: service_started
+
+    networks:
+      - pedidos-network
+
+    restart: unless-stopped
+
+  # ============================================================
+  # Orders Service
+  # ============================================================
+
+  orders-service:
+    build:
+      context: ./services/orders-service
+      dockerfile: Dockerfile
+
+    container_name: pedidos-orders-service
+
+    ports:
+      - "3001:3001"
+
+    environment:
+      NODE_ENV: production
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: pedidos_veloz
+      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: info
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    networks:
+      - pedidos-network
+
+    restart: unless-stopped
+
+  # ============================================================
+  # Inventory Service
+  # ============================================================
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+      dockerfile: Dockerfile
+
+    container_name: pedidos-inventory-service
+
+    ports:
+      - "3003:3003"
+
+    environment:
+      NODE_ENV: production
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: pedidos_veloz
+      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: info
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    networks:
+      - pedidos-network
+
+    restart: unless-stopped
+
+  # ============================================================
+  # Payments Service
+  # ============================================================
+
+  payments-service:
+    build:
+      context: ./services/payments-service
+      dockerfile: Dockerfile
+
+    container_name: pedidos-payments-service
+
+    ports:
+      - "3002:3002"
+
+    environment:
+      FLASK_ENV: production
+      FLASK_APP: app.py
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: pedidos_veloz
+      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: INFO
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    networks:
+      - pedidos-network
+
+    restart: unless-stopped
+
+# ============================================================
+# VOLUMES
+# ============================================================
+
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+
+# ============================================================
+# NETWORK
+# ============================================================
 
 networks:
   pedidos-network:
@@ -235,34 +679,80 @@ DOCKER_EOF
 
 print_success "docker-compose.yml criado"
 
-# 17. Iniciar infraestrutura
-print_step "Iniciando infraestrutura (PostgreSQL, Redis, RabbitMQ)..."
+# ============================================================
+# 16. INICIAR INFRAESTRUTURA
+# ============================================================
+
+print_step "Iniciando infraestrutura..."
+
 cd /opt/pedidos-veloz
-docker-compose up -d
+
+docker compose up -d \
+    || handle_error "Falha ao iniciar infraestrutura"
+
 print_success "Infraestrutura iniciada"
 
-# 18. Aguardar serviços ficarem prontos
-print_step "Aguardando serviços ficarem prontos..."
-sleep 10
-docker-compose ps
-print_success "Serviços prontos"
+# ============================================================
+# 17. AGUARDAR POSTGRESQL
+# ============================================================
 
-# 19. Instalar NGINX Ingress Controller
+print_step "Aguardando PostgreSQL..."
+
+for i in {1..30}; do
+
+    if docker exec pedidos-postgres \
+        pg_isready -U pedidos_user -d pedidos_veloz \
+        >/dev/null 2>&1; then
+
+        print_success "PostgreSQL pronto"
+        break
+    fi
+
+    if [ "$i" -eq 30 ]; then
+        handle_error "PostgreSQL não ficou pronto"
+    fi
+
+    sleep 2
+
+done
+
+# ============================================================
+# 18. VERIFICAR INFRAESTRUTURA
+# ============================================================
+
+print_step "Verificando infraestrutura..."
+
+docker compose ps
+
+print_success "Infraestrutura verificada"
+
+# ============================================================
+# 19. NGINX INGRESS CONTROLLER
+# ============================================================
+
 print_step "Instalando NGINX Ingress Controller..."
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
 
-# Aguardar NGINX Ingress Controller ficar pronto
-print_step "Aguardando NGINX Ingress Controller ficar pronto..."
-sleep 30
-kubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=300s || print_warning "NGINX Ingress Controller ainda está sendo iniciado, continue monitorando"
+kubectl apply \
+    -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml \
+    || handle_error "Falha ao instalar NGINX Ingress Controller"
+
+print_step "Aguardando NGINX Ingress Controller..."
+
+kubectl wait \
+    --namespace ingress-nginx \
+    --for=condition=ready pod \
+    --selector=app.kubernetes.io/component=controller \
+    --timeout=300s \
+    || print_warning "NGINX ainda está inicializando"
 
 print_success "NGINX Ingress Controller instalado"
 
-# 20. Criar script de deploy
+# ============================================================
+# 20. SCRIPT DE DEPLOY
+# ============================================================
+
 print_step "Criando script de deploy..."
+
 cat > /opt/pedidos-veloz/deploy.sh <<'DEPLOY_EOF'
 #!/bin/bash
 
@@ -272,96 +762,144 @@ echo "🚀 Iniciando deploy..."
 
 cd /opt/pedidos-veloz
 
-# Clonar/atualizar repositório
-if [ -d "pedidos-veloz" ]; then
+if [ -d "pedidos-veloz/.git" ]; then
+
     echo "📦 Atualizando repositório..."
+
     cd pedidos-veloz
-    git pull origin main
+
+    git fetch origin
+    git reset --hard origin/main
+
     cd ..
+
 else
+
     echo "📦 Clonando repositório..."
+
+    rm -rf pedidos-veloz
+
     git clone https://github.com/Devan-M/pedidos-veloz.git
+
 fi
 
-# Deploy com Kustomize
 echo "🚀 Deployando aplicação no Kubernetes..."
+
 kubectl apply -k pedidos-veloz/k8s/base/
 
+echo ""
 echo "✅ Deploy concluído!"
 echo ""
 echo "📋 Verificar status:"
 echo "   kubectl get pods -n pedidos-veloz"
 echo "   kubectl get svc -n pedidos-veloz"
 echo "   kubectl get ingress -n pedidos-veloz"
+
 DEPLOY_EOF
 
 chmod +x /opt/pedidos-veloz/deploy.sh
+
 print_success "Script de deploy criado"
 
-# 21. Criar arquivo de configuração
-print_step "Criando arquivo de configuração..."
+# ============================================================
+# 21. ARQUIVO .ENV
+# ============================================================
+
+print_step "Criando arquivo .env..."
+
 cat > /opt/pedidos-veloz/.env <<'ENV_EOF'
 NODE_ENV=production
 FLASK_ENV=production
 
 # Database
-DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_USER=pedidos_user
+POSTGRES_PASSWORD=secure_password_123
+POSTGRES_DB=pedidos_veloz
+DATABASE_URL=postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
 
 # Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
 REDIS_URL=redis://redis:6379
 
 # RabbitMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
 RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
 
 # Services
-API_GATEWAY_PORT=3000
+API_GATEWAY_PORT=8080
 ORDERS_SERVICE_PORT=3001
-INVENTORY_SERVICE_PORT=3002
-PAYMENTS_SERVICE_PORT=3003
+INVENTORY_SERVICE_PORT=3003
+PAYMENTS_SERVICE_PORT=3002
 
 # Logging
 LOG_LEVEL=info
 ENV_EOF
 
+chmod 600 /opt/pedidos-veloz/.env
+
 print_success "Arquivo .env criado"
 
-# 22. Resumo final
+# ============================================================
+# 22. RESUMO FINAL
+# ============================================================
+
 echo ""
 echo "==========================================="
 print_success "Setup concluído com sucesso!"
 echo "==========================================="
 echo ""
+
 echo "📋 Próximos passos:"
 echo ""
-echo "1️⃣  Registrar o runner no GitHub:"
+
+echo "1️⃣ Registrar o runner no GitHub:"
 echo "   cd /opt/pedidos-veloz/runner"
 echo "   ./config.sh --url https://github.com/Devan-M/pedidos-veloz --token <SEU_TOKEN>"
 echo ""
-echo "2️⃣  Iniciar o runner como serviço:"
+
+echo "2️⃣ Iniciar o runner:"
 echo "   sudo systemctl enable actions-runner"
 echo "   sudo systemctl start actions-runner"
 echo ""
-echo "3️⃣  Verificar status:"
+
+echo "3️⃣ Verificar status:"
 echo "   sudo systemctl status actions-runner"
-echo "   docker-compose -f /opt/pedidos-veloz/docker-compose.yml ps"
+echo "   docker compose -f /opt/pedidos-veloz/docker-compose.yml ps"
 echo "   kubectl get pods -n ingress-nginx"
 echo ""
-echo "4️⃣  Obter IP do Ingress:"
+
+echo "4️⃣ Verificar PostgreSQL:"
+echo "   docker exec pedidos-postgres psql -U pedidos_user -d pedidos_veloz -c '\du'"
+echo ""
+
+echo "5️⃣ Obter IP do Ingress:"
 echo "   kubectl get svc -n ingress-nginx ingress-nginx-controller"
 echo ""
-echo "5️⃣  Configurar /etc/hosts (adicione a linha com o IP do Ingress):"
-echo "   <IP_DO_INGRESS> api.pedidos-veloz.local"
-echo "   <IP_DO_INGRESS> grafana.pedidos-veloz.local"
-echo "   <IP_DO_INGRESS> prometheus.pedidos-veloz.local"
-echo ""
-echo "6️⃣  Fazer deploy da aplicação:"
+
+echo "6️⃣ Fazer deploy:"
 echo "   /opt/pedidos-veloz/deploy.sh"
 echo ""
-echo "7️⃣  Acessar RabbitMQ Management:"
-echo "   http://192.168.1.2:15672 (guest/guest)"
+
+echo "7️⃣ RabbitMQ Management:"
+echo "   http://<IP_DO_SERVIDOR>:15672"
+echo "   usuário: guest"
+echo "   senha: guest"
 echo ""
-echo "📁 Diretórios importantes:"
+
+echo "📁 Diretórios:"
 echo "   - Aplicação: /opt/pedidos-veloz"
 echo "   - Runner: /opt/pedidos-veloz/runner"
 echo "   - Repositório: /opt/pedidos-veloz/pedidos-veloz"
+echo ""
+
+echo "🔍 Troubleshooting:"
+echo "   journalctl -u actions-runner -f"
+echo "   docker compose logs -f"
+echo "   kubectl get pods -A"
 echo ""

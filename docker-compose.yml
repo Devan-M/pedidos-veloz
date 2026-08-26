@@ -1,161 +1,326 @@
 services:
+
+  # ============================================================
+  # PostgreSQL
+  # ============================================================
   postgres:
     image: postgres:15-alpine
     container_name: pedidos-postgres
+
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
       POSTGRES_DB: pedidos_veloz
+
     ports:
       - "5432:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     networks:
       - pedidos-network
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U pedidos_user -d pedidos_veloz"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+    restart: unless-stopped
+
+
+  # ============================================================
+  # Redis
+  # ============================================================
   redis:
     image: redis:7-alpine
     container_name: pedidos-redis
+
     ports:
       - "6379:6379"
+
     volumes:
       - redis_data:/data
+
     networks:
       - pedidos-network
+
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+    restart: unless-stopped
+
+
+  # ============================================================
+  # RabbitMQ
+  # ============================================================
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: pedidos-rabbitmq
+
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+
     ports:
       - "5672:5672"
       - "15672:15672"
+
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
     networks:
       - pedidos-network
+
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+    restart: unless-stopped
+
+
+  # ============================================================
+  # API Gateway
+  # ============================================================
   api-gateway:
     build:
       context: ./services/api-gateway
       dockerfile: Dockerfile
+
     container_name: pedidos-api-gateway
+
     ports:
       - "8080:8080"
+
     environment:
       NODE_ENV: production
+
       ORDERS_SERVICE_URL: http://orders-service:3001
       INVENTORY_SERVICE_URL: http://inventory-service:3003
       PAYMENTS_SERVICE_URL: http://payments-service:3002
+
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: info
+
     depends_on:
       redis:
         condition: service_healthy
+
       rabbitmq:
         condition: service_healthy
+
       orders-service:
         condition: service_started
+
       inventory-service:
         condition: service_started
+
       payments-service:
         condition: service_started
+
     networks:
       - pedidos-network
+
     restart: unless-stopped
 
+
+  # ============================================================
+  # Orders Service
+  # ============================================================
   orders-service:
     build:
       context: ./services/orders-service
       dockerfile: Dockerfile
+
     container_name: pedidos-orders-service
+
     ports:
       - "3001:3001"
+
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+
+      # PostgreSQL
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: pedidos_veloz
+      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
+
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: info
+
     depends_on:
       postgres:
         condition: service_healthy
+
       redis:
         condition: service_healthy
+
       rabbitmq:
         condition: service_healthy
+
     networks:
       - pedidos-network
+
     restart: unless-stopped
 
+
+  # ============================================================
+  # Inventory Service
+  # ============================================================
   inventory-service:
     build:
       context: ./services/inventory-service
       dockerfile: Dockerfile
+
     container_name: pedidos-inventory-service
+
     ports:
       - "3003:3003"
+
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+
+      # PostgreSQL
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: pedidos_veloz
+      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
+
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      LOG_LEVEL: info
+
     depends_on:
       postgres:
         condition: service_healthy
+
       redis:
         condition: service_healthy
+
       rabbitmq:
         condition: service_healthy
+
     networks:
       - pedidos-network
+
     restart: unless-stopped
 
+
+  # ============================================================
+  # Payments Service
+  # ============================================================
   payments-service:
     build:
       context: ./services/payments-service
       dockerfile: Dockerfile
+
     container_name: pedidos-payments-service
+
     ports:
       - "3002:3002"
+
     environment:
       FLASK_ENV: production
       FLASK_APP: app.py
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pedidos_veloz
+
+      # PostgreSQL
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: pedidos_user
+      POSTGRES_PASSWORD: secure_password_123
+      POSTGRES_DB: pedidos_veloz
+      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
+
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+      # Python logging precisa de nível válido
+      LOG_LEVEL: INFO
+
     depends_on:
       postgres:
         condition: service_healthy
+
       redis:
         condition: service_healthy
+
       rabbitmq:
         condition: service_healthy
+
     networks:
       - pedidos-network
+
     restart: unless-stopped
 
+
+# ==============================================================
+# Volumes
+# ==============================================================
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
 
+
+# ==============================================================
+# Network
+# ==============================================================
 networks:
   pedidos-network:
     driver: bridge
