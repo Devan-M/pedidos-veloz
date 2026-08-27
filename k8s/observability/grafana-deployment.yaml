@@ -47,6 +47,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 472
         fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: grafana
         image: grafana/grafana:11.1.0
