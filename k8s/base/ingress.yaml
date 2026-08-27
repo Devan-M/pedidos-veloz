@@ -3,10 +3,8 @@ kind: Ingress
 metadata:
   name: pedidos-ingress
   namespace: pedidos-veloz
-  annotations:
-    nginx.ingress.kubernetes.io/rate-limit: "100"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - host: api.pedidos-veloz.local
     http:

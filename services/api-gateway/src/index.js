@@ -21,13 +21,6 @@ app.use(logger);
 app.use(helmet());
 app.use(cors());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Limite de 100 requisições por IP
-});
-app.use(limiter);
-
 // Middleware
 app.use(express.json());
 
@@ -86,6 +79,16 @@ app.get('/metrics', async (req, res) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 });
+
+// Rate limiting
+// Aplicado somente às rotas da API, mantendo health/readiness/metrics
+// disponíveis para Kubernetes e Prometheus.
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // Limite de 100 requisições por IP
+});
+
+app.use('/api', limiter);
 
 // Proxy para Orders Service
 app.use('/api/orders', (req, res) => {
