@@ -1,4 +1,6 @@
-# Deny all ingress traffic by default
+# ============================================================
+# DEFAULT DENY
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -7,30 +9,40 @@ metadata:
 spec:
   podSelector: {}
   policyTypes:
-  - Ingress
+    - Ingress
 
 ---
-# Allow traffic to API Gateway from outside
+# ============================================================
+# TRAEFIK -> API GATEWAY
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-api-gateway-ingress
+  name: allow-api-gateway-from-traefik
   namespace: pedidos-veloz
 spec:
   podSelector:
     matchLabels:
       app: api-gateway
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - namespaceSelector: {}
-    ports:
-    - protocol: TCP
-      port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8080
+
 
 ---
-# Allow Orders Service to receive traffic from API Gateway
+# ============================================================
+# API GATEWAY -> ORDERS
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -41,18 +53,20 @@ spec:
     matchLabels:
       app: orders-service
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: api-gateway
-    ports:
-    - protocol: TCP
-      port: 3001
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3001
 
 ---
-# Allow Inventory Service to receive traffic from API Gateway
+# ============================================================
+# API GATEWAY -> INVENTORY
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -63,18 +77,20 @@ spec:
     matchLabels:
       app: inventory-service
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: api-gateway
-    ports:
-    - protocol: TCP
-      port: 3003
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3003
 
 ---
-# Allow Payments Service to receive traffic from API Gateway
+# ============================================================
+# API GATEWAY -> PAYMENTS
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -85,100 +101,147 @@ spec:
     matchLabels:
       app: payments-service
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: api-gateway
-    ports:
-    - protocol: TCP
-      port: 3002
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 3002
 
 ---
-# Allow all services to access PostgreSQL
+# ============================================================
+# SERVICES -> POSTGRESQL
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-postgres-access
+  name: allow-postgres-from-services
   namespace: pedidos-veloz
 spec:
   podSelector:
     matchLabels:
       app: postgres
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector: {}
-    ports:
-    - protocol: TCP
-      port: 5432
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: orders-service
+        - podSelector:
+            matchLabels:
+              app: inventory-service
+        - podSelector:
+            matchLabels:
+              app: payments-service
+      ports:
+        - protocol: TCP
+          port: 5432
 
 ---
-# Allow all services to access Redis
+# ============================================================
+# SERVICES -> REDIS
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-redis-access
+  name: allow-redis-from-services
   namespace: pedidos-veloz
 spec:
   podSelector:
     matchLabels:
       app: redis
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector: {}
-    ports:
-    - protocol: TCP
-      port: 6379
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: orders-service
+        - podSelector:
+            matchLabels:
+              app: inventory-service
+        - podSelector:
+            matchLabels:
+              app: payments-service
+      ports:
+        - protocol: TCP
+          port: 6379
 
 ---
-# Allow all services to access RabbitMQ
+# ============================================================
+# SERVICES -> RABBITMQ
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-rabbitmq-access
+  name: allow-rabbitmq-from-services
   namespace: pedidos-veloz
 spec:
   podSelector:
     matchLabels:
       app: rabbitmq
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector: {}
-    ports:
-    - protocol: TCP
-      port: 5672
-    - protocol: TCP
-      port: 15672
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+        - podSelector:
+            matchLabels:
+              app: orders-service
+        - podSelector:
+            matchLabels:
+              app: inventory-service
+        - podSelector:
+            matchLabels:
+              app: payments-service
+      ports:
+        - protocol: TCP
+          port: 5672
 
 ---
-# Allow Prometheus to scrape metrics
+# ============================================================
+# PROMETHEUS -> APPLICATION METRICS
+# ============================================================
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-prometheus-scrape
   namespace: pedidos-veloz
 spec:
-  podSelector: {}
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - api-gateway
+          - orders-service
+          - inventory-service
+          - payments-service
   policyTypes:
-  - Ingress
+    - Ingress
   ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: prometheus
-    ports:
-    - protocol: TCP
-      port: 8080
-    - protocol: TCP
-      port: 3001
-    - protocol: TCP
-      port: 3002
-    - protocol: TCP
-      port: 3003
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 3001
+        - protocol: TCP
+          port: 3002
+        - protocol: TCP
+          port: 3003
