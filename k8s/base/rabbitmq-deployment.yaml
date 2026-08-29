@@ -28,11 +28,11 @@ spec:
         app: rabbitmq
     spec:
       securityContext:
-        fsGroup: 999
+        fsGroup: 101
         seccompProfile:
           type: RuntimeDefault
         runAsNonRoot: true
-        runAsUser: 999
+        runAsUser: 100
       containers:
       - name: rabbitmq
         image: rabbitmq:3.12-management-alpine
@@ -56,24 +56,18 @@ spec:
         - name: rabbitmq-storage
           mountPath: /var/lib/rabbitmq
         livenessProbe:
-          exec:
-            command:
-            - rabbitmq-diagnostics
-            - -q
-            - ping
+          tcpSocket:
+            port: amqp
           initialDelaySeconds: 60
           periodSeconds: 15
-          timeoutSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 6
         readinessProbe:
-          exec:
-            command:
-            - rabbitmq-diagnostics
-            - -q
-            - ping
-          initialDelaySeconds: 5
+          tcpSocket:
+            port: amqp
+          initialDelaySeconds: 10
           periodSeconds: 15
-          timeoutSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 6
         resources:
           requests:
