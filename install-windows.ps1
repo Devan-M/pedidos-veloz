@@ -125,9 +125,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "📊 Serviços disponíveis:" -ForegroundColor Yellow
 Write-Host "  • API Gateway: http://localhost:8080" -ForegroundColor Cyan
-Write-Host "  • Grafana: http://localhost:3000 (admin/admin123)" -ForegroundColor Cyan
+Write-Host "  • Grafana: http://localhost:3000 (admin/CHANGE_ME)" -ForegroundColor Cyan
 Write-Host "  • Prometheus: http://localhost:9090" -ForegroundColor Cyan
-Write-Host "  • RabbitMQ: http://localhost:15672 (guest/guest)" -ForegroundColor Cyan
+Write-Host "  • RabbitMQ: http://localhost:15672 (CHANGE_ME/CHANGE_ME)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "📝 Próximos passos:" -ForegroundColor Yellow
 Write-Host "  1. Abra http://localhost:3000 no navegador" -ForegroundColor Cyan

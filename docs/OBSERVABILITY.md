@@ -66,7 +66,7 @@ increase(payments_amount_total[1h])
 ## Dashboards (Grafana)
 
 ### Acessar Grafana
-URL: http://localhost:3000 User: admin Password: admin123
+URL: http://localhost:3000 User: admin Password: CHANGE_ME
 
 ### Dashboards Pré-configurados
 

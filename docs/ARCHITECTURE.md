@@ -227,7 +227,7 @@ CREATE INDEX idx_created_at ON payments(created_at);
 - Versão: latest
 - Porta: 3000
 - Usuário: admin
-- Senha: admin123
+- Senha: CHANGE_ME
 
 ## Fluxo de Dados
 
