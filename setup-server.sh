@@ -352,7 +352,120 @@ sudo systemctl daemon-reload \
 print_success "Serviço systemd configurado"
 
 # ============================================================
-# 15. DOCKER COMPOSE DA INFRAESTRUTURA
+# 15. ARQUIVO .ENV
+# ============================================================
+
+print_step "Configurando arquivo .env..."
+
+if [ -f /pedidos-veloz/.env ]; then
+
+    print_warning "Arquivo .env já existe. Credenciais existentes serão preservadas."
+
+    chmod 600 /pedidos-veloz/.env
+
+else
+
+    print_step "Gerando credenciais seguras para o ambiente Docker..."
+
+    POSTGRES_USER="pedidos_user"
+    POSTGRES_PASSWORD="$(openssl rand -hex 32)"
+    POSTGRES_DB="pedidos_veloz"
+
+    RABBITMQ_DEFAULT_USER="pedidos_user"
+    RABBITMQ_DEFAULT_PASS="$(openssl rand -hex 32)"
+
+    cat > /pedidos-veloz/.env <<ENV_EOF
+NODE_ENV=production
+FLASK_ENV=production
+
+# Database
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_URL=redis://redis:6379
+
+# RabbitMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
+RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
+RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+
+# Services
+API_GATEWAY_PORT=8080
+ORDERS_SERVICE_PORT=3001
+INVENTORY_SERVICE_PORT=3003
+PAYMENTS_SERVICE_PORT=3002
+
+# Logging
+LOG_LEVEL=info
+ENV_EOF
+
+    chmod 600 /pedidos-veloz/.env
+
+    print_success "Arquivo .env criado com credenciais aleatórias"
+
+fi
+
+print_success "Arquivo .env criado"
+
+
+# ============================================================
+# 15.1. SECRETS DO KUBERNETES
+# ============================================================
+
+print_step "Configurando secrets do Kubernetes..."
+
+if [ -f /pedidos-veloz/k8s/base/secret.env ]; then
+
+    print_warning "Arquivo k8s/base/secret.env já existe. Credenciais existentes serão preservadas."
+
+    chmod 600 /pedidos-veloz/k8s/base/secret.env
+
+else
+
+    print_step "Gerando credenciais seguras para o Kubernetes..."
+
+    K8S_POSTGRES_USER="pedidos_user"
+    K8S_POSTGRES_PASSWORD="$(openssl rand -hex 32)"
+    K8S_REDIS_PASSWORD="$(openssl rand -hex 32)"
+    K8S_RABBITMQ_DEFAULT_USER="pedidos_user"
+    K8S_RABBITMQ_DEFAULT_PASS="$(openssl rand -hex 32)"
+    K8S_JWT_SECRET="$(openssl rand -hex 32)"
+    K8S_API_KEY="$(openssl rand -hex 32)"
+    K8S_GRAFANA_ADMIN_PASSWORD="$(openssl rand -hex 32)"
+
+    cat > /pedidos-veloz/k8s/base/secret.env <<K8S_SECRET_EOF
+POSTGRES_USER=${K8S_POSTGRES_USER}
+POSTGRES_PASSWORD=${K8S_POSTGRES_PASSWORD}
+REDIS_PASSWORD=${K8S_REDIS_PASSWORD}
+RABBITMQ_DEFAULT_USER=${K8S_RABBITMQ_DEFAULT_USER}
+RABBITMQ_DEFAULT_PASS=${K8S_RABBITMQ_DEFAULT_PASS}
+JWT_SECRET=${K8S_JWT_SECRET}
+API_KEY=${K8S_API_KEY}
+GRAFANA_ADMIN_PASSWORD=${K8S_GRAFANA_ADMIN_PASSWORD}
+K8S_SECRET_EOF
+
+    chmod 600 /pedidos-veloz/k8s/base/secret.env
+
+    print_success "Secrets do Kubernetes criados com credenciais aleatórias"
+
+fi
+
+
+
+
+# ============================================================
+# 16. DOCKER COMPOSE DA INFRAESTRUTURA
 # ============================================================
 
 print_step "Criando docker-compose.yml..."
@@ -369,9 +482,9 @@ services:
     container_name: pedidos-postgres
 
     environment:
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
 
     ports:
       - "5432:5432"
@@ -383,7 +496,7 @@ services:
       - pedidos-network
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pedidos_user -d pedidos_veloz"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -424,8 +537,8 @@ services:
     container_name: pedidos-rabbitmq
 
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
 
     ports:
       - "5672:5672"
@@ -472,9 +585,9 @@ services:
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: info
 
@@ -518,10 +631,10 @@ services:
 
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
-      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -529,11 +642,11 @@ services:
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: info
 
@@ -571,10 +684,10 @@ services:
 
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
-      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -582,11 +695,11 @@ services:
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: info
 
@@ -625,10 +738,10 @@ services:
 
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
-      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -636,11 +749,11 @@ services:
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: INFO
 
@@ -680,7 +793,7 @@ DOCKER_EOF
 print_success "docker-compose.yml criado"
 
 # ============================================================
-# 16. INICIAR INFRAESTRUTURA
+# 17. INICIAR INFRAESTRUTURA
 # ============================================================
 
 print_step "Iniciando infraestrutura..."
@@ -693,7 +806,7 @@ docker compose up -d \
 print_success "Infraestrutura iniciada"
 
 # ============================================================
-# 17. AGUARDAR POSTGRESQL
+# 18. AGUARDAR POSTGRESQL
 # ============================================================
 
 print_step "Aguardando PostgreSQL..."
@@ -701,7 +814,7 @@ print_step "Aguardando PostgreSQL..."
 for i in {1..30}; do
 
     if docker exec pedidos-postgres \
-        pg_isready -U pedidos_user -d pedidos_veloz \
+        pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
         >/dev/null 2>&1; then
 
         print_success "PostgreSQL pronto"
@@ -717,7 +830,7 @@ for i in {1..30}; do
 done
 
 # ============================================================
-# 18. VERIFICAR INFRAESTRUTURA
+# 19. VERIFICAR INFRAESTRUTURA
 # ============================================================
 
 print_step "Verificando infraestrutura..."
@@ -727,7 +840,7 @@ docker compose ps
 print_success "Infraestrutura verificada"
 
 # ============================================================
-# 19. NGINX INGRESS CONTROLLER
+# 20. NGINX INGRESS CONTROLLER
 # ============================================================
 
 print_step "Instalando NGINX Ingress Controller..."
@@ -748,7 +861,7 @@ kubectl wait \
 print_success "NGINX Ingress Controller instalado"
 
 # ============================================================
-# 20. SCRIPT DE DEPLOY
+# 21. SCRIPT DE DEPLOY
 # ============================================================
 
 print_step "Criando script de deploy..."
@@ -800,50 +913,6 @@ DEPLOY_EOF
 chmod +x /pedidos-veloz/deploy.sh
 
 print_success "Script de deploy criado"
-
-# ============================================================
-# 21. ARQUIVO .ENV
-# ============================================================
-
-print_step "Criando arquivo .env..."
-
-cat > /pedidos-veloz/.env <<'ENV_EOF'
-NODE_ENV=production
-FLASK_ENV=production
-
-# Database
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-POSTGRES_USER=pedidos_user
-POSTGRES_PASSWORD=secure_password_123
-POSTGRES_DB=pedidos_veloz
-DATABASE_URL=postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_URL=redis://redis:6379
-
-# RabbitMQ
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-RABBITMQ_USER=guest
-RABBITMQ_PASSWORD=guest
-RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-
-# Services
-API_GATEWAY_PORT=8080
-ORDERS_SERVICE_PORT=3001
-INVENTORY_SERVICE_PORT=3003
-PAYMENTS_SERVICE_PORT=3002
-
-# Logging
-LOG_LEVEL=info
-ENV_EOF
-
-chmod 600 /pedidos-veloz/.env
-
-print_success "Arquivo .env criado"
 
 # ============================================================
 # 22. RESUMO FINAL

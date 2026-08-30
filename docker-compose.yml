@@ -3,14 +3,15 @@ services:
   # ============================================================
   # PostgreSQL
   # ============================================================
+
   postgres:
     image: postgres:15-alpine
     container_name: pedidos-postgres
 
     environment:
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
 
     ports:
       - "5432:5432"
@@ -22,17 +23,17 @@ services:
       - pedidos-network
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pedidos_user -d pedidos_veloz"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
     restart: unless-stopped
 
-
   # ============================================================
   # Redis
   # ============================================================
+
   redis:
     image: redis:7-alpine
     container_name: pedidos-redis
@@ -54,17 +55,17 @@ services:
 
     restart: unless-stopped
 
-
   # ============================================================
   # RabbitMQ
   # ============================================================
+
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: pedidos-rabbitmq
 
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
 
     ports:
       - "5672:5672"
@@ -84,10 +85,10 @@ services:
 
     restart: unless-stopped
 
-
   # ============================================================
   # API Gateway
   # ============================================================
+
   api-gateway:
     build:
       context: ./services/api-gateway
@@ -111,9 +112,9 @@ services:
 
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: info
 
@@ -138,10 +139,10 @@ services:
 
     restart: unless-stopped
 
-
   # ============================================================
   # Orders Service
   # ============================================================
+
   orders-service:
     build:
       context: ./services/orders-service
@@ -155,27 +156,24 @@ services:
     environment:
       NODE_ENV: production
 
-      # PostgreSQL
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
-      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
-      # Redis
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
 
-      # RabbitMQ
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: info
 
@@ -194,10 +192,10 @@ services:
 
     restart: unless-stopped
 
-
   # ============================================================
   # Inventory Service
   # ============================================================
+
   inventory-service:
     build:
       context: ./services/inventory-service
@@ -211,27 +209,24 @@ services:
     environment:
       NODE_ENV: production
 
-      # PostgreSQL
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
-      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
-      # Redis
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
 
-      # RabbitMQ
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
       LOG_LEVEL: info
 
@@ -250,10 +245,10 @@ services:
 
     restart: unless-stopped
 
-
   # ============================================================
   # Payments Service
   # ============================================================
+
   payments-service:
     build:
       context: ./services/payments-service
@@ -268,29 +263,25 @@ services:
       FLASK_ENV: production
       FLASK_APP: app.py
 
-      # PostgreSQL
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: pedidos_user
-      POSTGRES_PASSWORD: secure_password_123
-      POSTGRES_DB: pedidos_veloz
-      DATABASE_URL: postgresql://pedidos_user:secure_password_123@postgres:5432/pedidos_veloz
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
 
-      # Redis
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_URL: redis://redis:6379
 
-      # RabbitMQ
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
 
-      # Python logging precisa de nível válido
       LOG_LEVEL: INFO
 
     depends_on:
@@ -308,19 +299,19 @@ services:
 
     restart: unless-stopped
 
+# ============================================================
+# VOLUMES
+# ============================================================
 
-# ==============================================================
-# Volumes
-# ==============================================================
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
 
+# ============================================================
+# NETWORK
+# ============================================================
 
-# ==============================================================
-# Network
-# ==============================================================
 networks:
   pedidos-network:
     driver: bridge

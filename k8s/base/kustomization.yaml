@@ -3,11 +3,18 @@ kind: Kustomization
 
 namespace: pedidos-veloz
 
+secretGenerator:
+  - name: pedidos-secrets
+    envs:
+      - secret.env
+
+generatorOptions:
+  disableNameSuffixHash: true
+
 resources:
   - namespace.yaml
   - rbac.yaml
   - configmap.yaml
-  - secret.yaml
   - postgresdeployment.yaml
   - redis-deployment.yaml
   - rabbitmq-deployment.yaml
