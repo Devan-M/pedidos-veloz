@@ -67,3 +67,4 @@ logs/
 # GitHub Actions Self-Hosted Runner
 runner/
 k8s/base/secret.env
+k8s/base/secret.yaml
