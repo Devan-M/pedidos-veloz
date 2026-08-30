@@ -103,4 +103,4 @@ spec:
     targetPort: 15672
     name: management
   type: ClusterIP
-  
+

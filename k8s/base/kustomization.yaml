@@ -29,3 +29,13 @@ resources:
 labels:
   - pairs:
     includeSelectors: false
+
+images:
+  - name: pedidos-veloz-api-gateway
+    newName: ghcr.io/devan-m/pedidos-veloz/api-gateway
+  - name: pedidos-veloz-orders-service
+    newName: ghcr.io/devan-m/pedidos-veloz/orders-service
+  - name: pedidos-veloz-inventory-service
+    newName: ghcr.io/devan-m/pedidos-veloz/inventory-service
+  - name: pedidos-veloz-payments-service
+    newName: ghcr.io/devan-m/pedidos-veloz/payments-service

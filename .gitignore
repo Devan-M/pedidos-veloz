@@ -2,8 +2,6 @@
 node_modules/
 npm-debug.log
 yarn-error.log
-package-lock.json
-yarn.lock
 
 # Python
 __pycache__/
@@ -68,3 +66,8 @@ logs/
 runner/
 k8s/base/secret.env
 k8s/base/secret.yaml
+# Python test and coverage artifacts
+.coverage
+coverage.xml
+coverage/
+.pytest_cache/

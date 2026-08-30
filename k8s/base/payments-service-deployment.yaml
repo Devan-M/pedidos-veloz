@@ -18,6 +18,10 @@ spec:
       app: payments-service
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "3002"
       labels:
         app: payments-service
         version: v1
@@ -32,7 +36,7 @@ spec:
       containers:
       - name: payments-service
         image: pedidos-veloz-payments-service:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3002
           name: http
@@ -85,12 +89,12 @@ spec:
             secretKeyRef:
               name: pedidos-secrets
               key: REDIS_PASSWORD
-        - name: RABBITMQ_DEFAULT_USER
+        - name: RABBITMQ_USER
           valueFrom:
             secretKeyRef:
               name: pedidos-secrets
               key: RABBITMQ_DEFAULT_USER
-        - name: RABBITMQ_DEFAULT_PASS
+        - name: RABBITMQ_PASSWORD
           valueFrom:
             secretKeyRef:
               name: pedidos-secrets
@@ -120,7 +124,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: 3002
           initialDelaySeconds: 10
           periodSeconds: 5

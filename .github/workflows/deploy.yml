@@ -7,6 +7,7 @@ on:
     paths:
       - 'k8s/**'
       - 'services/**'
+      - '.github/workflows/build.yml'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -17,6 +18,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: read
@@ -26,74 +28,78 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
         with:
           version: 'v1.28.0'
 
       - name: Configure kubeconfig
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
 
-      - name: Create namespace
+      - name: Create temporary secret.env
         run: |
-          kubectl create namespace pedidos-veloz --dry-run=client -o yaml | kubectl apply -f -
+          cat > k8s/base/secret.env <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          RABBITMQ_DEFAULT_USER=${{ secrets.RABBITMQ_DEFAULT_USER }}
+          RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_DEFAULT_PASS }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          API_KEY=${{ secrets.API_KEY }}
+          GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          EOF
+          chmod 600 k8s/base/secret.env
 
-      - name: Apply ConfigMaps and Secrets
+      - name: Validate Kubernetes manifests
         run: |
-          kubectl apply -f k8s/base/configmap.yaml
-          kubectl apply -f k8s/base/secret.yaml
+          kubectl kustomize k8s/base > /tmp/pedidos-veloz-k8s.yaml
+          kubectl apply --dry-run=server \
+            -f /tmp/pedidos-veloz-k8s.yaml
 
-      - name: Apply Infrastructure (PostgreSQL, Redis, RabbitMQ)
+      - name: Deploy with Kustomize
         run: |
-          kubectl apply -f k8s/base/postgres-deployment.yaml
-          kubectl apply -f k8s/base/redis-deployment.yaml
-          kubectl apply -f k8s/base/rabbitmq-deployment.yaml
-          kubectl wait --for=condition=ready pod -l app=postgres -n pedidos-veloz --timeout=300s || true
-          kubectl wait --for=condition=ready pod -l app=redis -n pedidos-veloz --timeout=300s || true
-          kubectl wait --for=condition=ready pod -l app=rabbitmq -n pedidos-veloz --timeout=300s || true
+          kubectl apply -k k8s/base
 
-      - name: Apply RBAC
+      - name: Wait for infrastructure
         run: |
-          kubectl apply -f k8s/base/rbac.yaml
+          kubectl rollout status deployment/postgres \
+            -n pedidos-veloz --timeout=300s
+          kubectl rollout status deployment/redis \
+            -n pedidos-veloz --timeout=300s
+          kubectl rollout status deployment/rabbitmq \
+            -n pedidos-veloz --timeout=300s
 
-      - name: Apply Security Policies
+      - name: Wait for microservices
         run: |
-          kubectl apply -f k8s/security/network-policy.yaml
-          kubectl apply -f k8s/security/pod-security-policy.yaml || true
+          kubectl rollout status deployment/api-gateway \
+            -n pedidos-veloz --timeout=300s
+          kubectl rollout status deployment/orders-service \
+            -n pedidos-veloz --timeout=300s
+          kubectl rollout status deployment/inventory-service \
+            -n pedidos-veloz --timeout=300s
+          kubectl rollout status deployment/payments-service \
+            -n pedidos-veloz --timeout=300s
 
-      - name: Apply Microservices Deployments
-        run: |
-          kubectl apply -f k8s/base/api-gateway-deployment.yaml
-          kubectl apply -f k8s/base/orders-service-deployment.yaml
-          kubectl apply -f k8s/base/inventory-service-deployment.yaml
-          kubectl apply -f k8s/base/payments-service-deployment.yaml
-
-      - name: Apply Monitoring Stack
-        run: |
-          kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
-          kubectl apply -f k8s/monitoring/grafana-deployment.yaml
-
-      - name: Wait for deployments
-        run: |
-          kubectl rollout status deployment/api-gateway -n pedidos-veloz --timeout=300s || true
-          kubectl rollout status deployment/orders-service -n pedidos-veloz --timeout=300s || true
-          kubectl rollout status deployment/inventory-service -n pedidos-veloz --timeout=300s || true
-          kubectl rollout status deployment/payments-service -n pedidos-veloz --timeout=300s || true
-
-      - name: Get deployment status
+      - name: Deployment status
         if: always()
         run: |
           echo "=== Deployments ==="
           kubectl get deployments -n pedidos-veloz
+
+          echo
           echo "=== Pods ==="
           kubectl get pods -n pedidos-veloz
+
+          echo
           echo "=== Services ==="
           kubectl get services -n pedidos-veloz
 
-      - name: Notify deployment
-        if: success()
+          echo
+          echo "=== HPA ==="
+          kubectl get hpa -n pedidos-veloz
+
+      - name: Deployment success
         run: |
-          echo "✅ Deployment successful!"
-          echo "API Gateway: $(kubectl get svc api-gateway-service -n pedidos-veloz -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo 'pending')"
+          echo "✅ Kubernetes deployment completed successfully!"

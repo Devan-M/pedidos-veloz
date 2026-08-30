@@ -19,6 +19,10 @@ spec:
       app: api-gateway
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
       labels:
         app: api-gateway
         version: v1
@@ -33,7 +37,7 @@ spec:
       containers:
       - name: api-gateway
         image: pedidos-veloz-api-gateway:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http

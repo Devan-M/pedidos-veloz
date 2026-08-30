@@ -18,6 +18,10 @@ spec:
       app: orders-service
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "3001"
       labels:
         app: orders-service
         version: v1
@@ -32,7 +36,7 @@ spec:
       containers:
       - name: orders-service
         image: pedidos-veloz-orders-service:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3001
           name: http

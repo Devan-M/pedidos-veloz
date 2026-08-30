@@ -18,6 +18,10 @@ spec:
       app: inventory-service
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "3003"
       labels:
         app: inventory-service
         version: v1
@@ -32,7 +36,7 @@ spec:
       containers:
       - name: inventory-service
         image: pedidos-veloz-inventory-service:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 3003
           name: http
