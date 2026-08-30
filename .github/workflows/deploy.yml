@@ -17,7 +17,7 @@ env:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     permissions:
       contents: read
@@ -31,12 +31,6 @@ jobs:
         uses: azure/setup-kubectl@v4
         with:
           version: 'v1.28.0'
-
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
 
       - name: Create temporary secret.env
         run: |
