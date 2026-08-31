@@ -33,6 +33,31 @@ spec:
           type: RuntimeDefault
         runAsNonRoot: true
         runAsUser: 100
+
+      initContainers:
+      - name: fix-erlang-cookie-permissions
+        image: rabbitmq:3.12-management-alpine
+        command:
+        - sh
+        - -c
+        - |
+          if [ -f /var/lib/rabbitmq/.erlang.cookie ]; then
+            chmod 600 /var/lib/rabbitmq/.erlang.cookie
+          fi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          runAsUser: 100
+          runAsGroup: 101
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: rabbitmq-storage
+          mountPath: /var/lib/rabbitmq
+
       containers:
       - name: rabbitmq
         image: rabbitmq:3.12-management-alpine
