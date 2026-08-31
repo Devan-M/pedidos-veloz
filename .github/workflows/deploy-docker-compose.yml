@@ -63,20 +63,20 @@ jobs:
 
       - name: Verify Orders Service
         run: |
-          echo "Testing Orders Service on port 8081..."
-          curl -f http://localhost:8081/health || echo "⚠️  Health check endpoint not available"
+          echo "Testing Orders Service on port 3001..."
+          curl -f http://localhost:3001/health || echo "⚠️  Health check endpoint not available"
         continue-on-error: true
 
       - name: Verify Inventory Service
         run: |
-          echo "Testing Inventory Service on port 8082..."
-          curl -f http://localhost:8082/health || echo "⚠️  Health check endpoint not available"
+          echo "Testing Inventory Service on port 3003..."
+          curl -f http://localhost:3003/health || echo "⚠️  Health check endpoint not available"
         continue-on-error: true
 
       - name: Verify Payments Service
         run: |
-          echo "Testing Payments Service on port 8083..."
-          curl -f http://localhost:8083/health || echo "⚠️  Health check endpoint not available"
+          echo "Testing Payments Service on port 3002..."
+          curl -f http://localhost:3002/health || echo "⚠️  Health check endpoint not available"
         continue-on-error: true
 
       - name: Deployment success
@@ -86,9 +86,9 @@ jobs:
           echo ""
           echo "Services running:"
           echo "  - API Gateway: http://192.168.1.2:8080"
-          echo "  - Orders Service: http://192.168.1.2:8081"
-          echo "  - Inventory Service: http://192.168.1.2:8082"
-          echo "  - Payments Service: http://192.168.1.2:8083"
+          echo "  - Orders Service: http://192.168.1.2:3001"
+          echo "  - Inventory Service: http://192.168.1.2:3003"
+          echo "  - Payments Service: http://192.168.1.2:3002"
           echo "  - RabbitMQ Management: http://192.168.1.2:15672"
 
       - name: Deployment failed
