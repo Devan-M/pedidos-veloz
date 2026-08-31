@@ -1,14 +1,13 @@
 name: Deploy to Kubernetes
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Build & Push Images
+    types:
+      - completed
     branches:
       - main
-    paths:
-      - 'k8s/**'
-      - 'services/**'
-      - '.github/workflows/build.yml'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 env:
@@ -17,6 +16,13 @@ env:
 
 jobs:
   deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+
     runs-on: self-hosted
 
     permissions:
@@ -24,8 +30,10 @@ jobs:
       packages: read
 
     steps:
-      - name: Checkout code
+      - name: Checkout deployed commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.workflow_run.head_sha }}
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -34,6 +42,8 @@ jobs:
 
       - name: Create temporary secret.env
         run: |
+          set -e
+
           cat > k8s/base/secret.env <<EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
@@ -44,35 +54,99 @@ jobs:
           API_KEY=${{ secrets.API_KEY }}
           GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           EOF
+
           chmod 600 k8s/base/secret.env
+
+      - name: Set image versions
+        run: |
+          set -e
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            IMAGE_TAG="main-${GITHUB_SHA::7}"
+          else
+            IMAGE_TAG="main-${{ github.event.workflow_run.head_sha }}"
+            IMAGE_TAG="${IMAGE_TAG:0:12}"
+          fi
+
+          echo "Using image tag: ${IMAGE_TAG}"
+
+          python3 - "${IMAGE_TAG}" <<'PY'
+          from pathlib import Path
+          import sys
+
+          tag = sys.argv[1]
+          path = Path("k8s/base/kustomization.yaml")
+          text = path.read_text()
+
+          services = [
+              "api-gateway",
+              "orders-service",
+              "inventory-service",
+              "payments-service",
+          ]
+
+          lines = text.splitlines()
+          output = []
+          current = None
+
+          for line in lines:
+              stripped = line.strip()
+
+              if stripped.startswith("- name: pedidos-veloz-"):
+                  current = stripped.split("pedidos-veloz-", 1)[1]
+
+              output.append(line)
+
+              if current in services and stripped.startswith("newName:"):
+                  output.append(f"    newTag: {tag}")
+                  current = None
+
+          path.write_text("\n".join(output) + "\n")
+          PY
+
+          echo "Images configured:"
+          grep -A2 "name: pedidos-veloz-" k8s/base/kustomization.yaml
 
       - name: Validate Kubernetes manifests
         run: |
+          set -e
+
           kubectl kustomize k8s/base > /tmp/pedidos-veloz-k8s.yaml
+
           kubectl apply --dry-run=server \
             -f /tmp/pedidos-veloz-k8s.yaml
 
       - name: Deploy with Kustomize
         run: |
+          set -e
           kubectl apply -k k8s/base
 
       - name: Wait for infrastructure
         run: |
+          set -e
+
           kubectl rollout status deployment/postgres \
             -n pedidos-veloz --timeout=300s
+
           kubectl rollout status deployment/redis \
             -n pedidos-veloz --timeout=300s
+
           kubectl rollout status deployment/rabbitmq \
             -n pedidos-veloz --timeout=300s
 
       - name: Wait for microservices
         run: |
+          set -e
+
           kubectl rollout status deployment/api-gateway \
             -n pedidos-veloz --timeout=300s
+
           kubectl rollout status deployment/orders-service \
             -n pedidos-veloz --timeout=300s
+
           kubectl rollout status deployment/inventory-service \
             -n pedidos-veloz --timeout=300s
+
           kubectl rollout status deployment/payments-service \
             -n pedidos-veloz --timeout=300s
 
@@ -94,6 +168,19 @@ jobs:
           echo "=== HPA ==="
           kubectl get hpa -n pedidos-veloz
 
+          echo
+          echo "=== Images ==="
+          kubectl get deployments -n pedidos-veloz \
+            -o custom-columns='NAME:.metadata.name,IMAGE:.spec.template.spec.containers[*].image'
+
       - name: Deployment success
         run: |
-          echo "✅ Kubernetes deployment completed successfully!"
+          echo "=========================================="
+          echo "Kubernetes deployment completed successfully!"
+          echo "=========================================="
+
+      - name: Cleanup temporary secrets
+        if: always()
+        run: |
+          rm -f k8s/base/secret.env
+          echo "Temporary secret.env removed."
