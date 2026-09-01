@@ -1,424 +1,753 @@
-# 🚀 Pedidos Veloz - Microservices Architecture
+# 🚀 Pedidos Veloz
 
-Sistema de gerenciamento de pedidos com arquitetura de microsserviços em Node.js e Python, deployado em Kubernetes com CI/CD automatizado.
+Sistema distribuído de gerenciamento de pedidos desenvolvido com arquitetura de microsserviços, utilizando Docker Compose para execução local e Kubernetes para implantação, observabilidade e escalabilidade.
 
-## 📋 Índice
+<p>
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <img alt="Docker" src="https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white">
+  <img alt="Kubernetes" src="https://img.shields.io/badge/kubernetes-ready-326CE5?logo=kubernetes&logoColor=white">
+  <img alt="CI/CD" src="https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white">
+</p>
 
-- [Arquitetura](#arquitetura)
-- [Serviços](#serviços)
-- [Pré-requisitos](#pré-requisitos)
-- [Instalação Local](#instalação-local)
-- [Testes](#testes)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [Deployment](#deployment)
-- [Documentação](#documentação)
+## 📑 Sumário
+
+- [Visão Geral](#-visão-geral)
+- [Arquitetura](#️-arquitetura)
+- [Ambiente Local com Docker Compose](#-ambiente-local-com-docker-compose)
+- [Conteinerização](#-conteinerização)
+- [Kubernetes](#️-kubernetes)
+- [CI/CD](#-cicd)
+- [Estratégia de Deploy](#-estratégia-de-deploy)
+- [Estratégia de Escalabilidade](#-estratégia-de-escalabilidade)
+- [Observabilidade](#-observabilidade)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Validação Kubernetes](#-validação-kubernetes)
+- [Segurança](#-segurança)
+- [Atendimento aos Requisitos](#-atendimento-aos-requisitos)
+- [Conclusão](#-conclusão)
+- [Licença](#-licença)
+- [Autor](#-autor)
+
+---
+
+## 📋 Visão Geral
+
+O **Pedidos Veloz** é composto por múltiplos serviços independentes que se comunicam por HTTP e mensageria.
+
+A arquitetura possui:
+
+- API Gateway
+- Orders Service
+- Inventory Service
+- Payments Service
+- PostgreSQL
+- Redis
+- RabbitMQ
+
+O projeto pode ser executado localmente utilizando Docker Compose e implantado em um cluster Kubernetes.
+
+---
 
 ## 🏗️ Arquitetura
 
-\\\
-┌─────────────────────────────────────────────────────────────┐
-│                     API Gateway (Express)                    │
-│                    Port: 3000                                │
-└─────────────────────────────────────────────────────────────┘
-           ↓              ↓              ↓
-    ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │ Orders   │  │Inventory │  │ Payments │
-    │Service   │  │ Service  │  │ Service  │
-    │(Node.js) │  │(Node.js) │  │(Python)  │
-    │3001      │  │3002      │  │3003      │
-    └──────────┘  └──────────┘  └──────────┘
-           ↓              ↓              ↓
-    ┌─────────────────────────────────────────┐
-    │    PostgreSQL | Redis | RabbitMQ        │
-    └─────────────────────────────────────────┘
-\\\
+```mermaid
+flowchart TD
+    GW["API Gateway<br/>:8080"]
+    ORD["Orders Service<br/>:3001"]
+    INV["Inventory Service<br/>:3003"]
+    PAY["Payments Service<br/>:3002"]
+    PG[("PostgreSQL<br/>:5432")]
+    RD[("Redis<br/>:6379")]
+    MQ[("RabbitMQ<br/>:5672")]
 
-## 🎯 Serviços
+    GW --> ORD
+    GW --> INV
+    GW --> PAY
 
-### API Gateway
-- **Linguagem**: Node.js (Express)
-- **Porta**: 3000
-- **Responsabilidade**: Roteamento, autenticação, rate limiting
-- **Testes**: Jest + Supertest
+    ORD --> PG
+    ORD --> RD
+    ORD --> MQ
 
-### Orders Service
-- **Linguagem**: Node.js (Express)
-- **Porta**: 3001
-- **Responsabilidade**: Gerenciamento de pedidos
-- **Testes**: 4 testes unitários (47.87% coverage)
-- **Cobertura**: Criar, listar, atualizar pedidos
+    INV --> PG
+    INV --> RD
 
-### Inventory Service
-- **Linguagem**: Node.js (Express)
-- **Porta**: 3002
-- **Responsabilidade**: Gerenciamento de estoque
-- **Testes**: 5 testes unitários (53.5% coverage)
-- **Cobertura**: Produtos, disponibilidade, quantidade
+    PAY --> PG
+    PAY --> MQ
+```
 
-### Payments Service
-- **Linguagem**: Python (Flask)
-- **Porta**: 3003
-- **Responsabilidade**: Processamento de pagamentos
-- **Testes**: 10 testes unitários (74% coverage)
-- **Cobertura**: Criar, processar, rastrear pagamentos
+---
 
-## 📦 Pré-requisitos
+## 🐳 Ambiente Local com Docker Compose
 
-### Local Development
-- **Node.js** 18+ ([Download](https://nodejs.org/))
-- **Python** 3.9+ ([Download](https://www.python.org/))
-- **Docker** e **Docker Compose** ([Download](https://www.docker.com/))
-- **Git**
+### Requisitos
 
-### Verificar instalação
-\\\powershell
+Antes de executar o projeto, instale:
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Git](https://git-scm.com/)
+- Node.js 20 ou superior
+- Python 3.14 ou superior
+
+Verifique as versões:
+
+```bash
 node --version
 python --version
 docker --version
+docker compose version
 git --version
-\\\
+```
 
-## 🛠️ Instalação Local
+### Instalação Local
 
-### 1. Clonar repositório
-\\\powershell
+**1. Clonar o repositório**
+
+```bash
 git clone https://github.com/Devan-M/pedidos-veloz.git
 cd pedidos-veloz
-\\\
+```
 
-### 2. Iniciar infraestrutura (Docker Compose)
-\\\powershell
-docker-compose up -d
-\\\
+**2. Configurar variáveis de ambiente**
 
-Isso inicia:
-- PostgreSQL (porta 5432)
-- Redis (porta 6379)
-- RabbitMQ (porta 5672, admin: 15672)
+Crie o arquivo `.env` a partir do arquivo de exemplo:
 
-### 3. Instalar dependências
+```bash
+cp .env.example .env
+```
 
-**Orders Service**
-\\\powershell
-cd services/orders-service
-npm install
-\\\
+Configure os valores necessários no arquivo `.env`.
 
-**Inventory Service**
-\\\powershell
-cd services/inventory-service
-npm install
-\\\
+> ⚠️ O arquivo `.env` contém informações sensíveis e não deve ser versionado no Git.
 
-**Payments Service**
-\\\powershell
-cd services/payments-service
-pip install -r requirements.txt
-\\\
+**3. Iniciar a aplicação**
 
-### 4. Configurar variáveis de ambiente
+Toda a arquitetura pode ser iniciada utilizando um único comando:
 
-Crie \.env\ em cada serviço:
+```bash
+docker compose up -d
+```
 
-**services/orders-service/.env**
-\\\
-NODE_ENV=development
-PORT=3001
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pedidos_veloz
-REDIS_URL=redis://localhost:6379
-RABBITMQ_URL=amqp://guest:guest@localhost:5672
-LOG_LEVEL=info
-\\\
+O Docker Compose inicia:
 
-**services/inventory-service/.env**
-\\\
-NODE_ENV=development
-INVENTORY_SERVICE_PORT=3002
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pedidos_veloz
-REDIS_URL=redis://localhost:6379
-RABBITMQ_URL=amqp://guest:guest@localhost:5672
-LOG_LEVEL=info
-\\\
+- API Gateway
+- Orders Service
+- Inventory Service
+- Payments Service
+- PostgreSQL
+- Redis
+- RabbitMQ
 
-**services/payments-service/.env**
-\\\
-FLASK_ENV=development
-PAYMENTS_SERVICE_PORT=3003
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pedidos_veloz
-REDIS_URL=redis://localhost:6379
-RABBITMQ_URL=amqp://guest:guest@localhost:5672
-LOG_LEVEL=info
-\\\
+**4. Verificar os serviços**
 
-### 5. Iniciar serviços
+```bash
+docker compose ps
+```
 
-**Orders Service**
-\\\powershell
-cd services/orders-service
-npm start
-\\\
+Para acompanhar os logs:
 
-**Inventory Service** (novo terminal)
-\\\powershell
-cd services/inventory-service
-npm start
-\\\
+```bash
+docker compose logs -f
+```
 
-**Payments Service** (novo terminal)
-\\\powershell
-cd services/payments-service
-python -m flask run --port 3003
-\\\
+Para visualizar os logs de um serviço específico:
 
-**API Gateway** (novo terminal)
-\\\powershell
-cd services/api-gateway
-npm start
-\\\
+```bash
+docker compose logs -f orders-service
+```
 
-## 🧪 Testes
+**5. Parar a aplicação**
 
-### Rodar todos os testes localmente
+```bash
+docker compose down
+```
 
-**Orders Service**
-\\\powershell
-cd services/orders-service
-npm test
-\\\
+Os dados persistentes permanecem nos volumes Docker configurados.
 
-**Inventory Service**
-\\\powershell
-cd services/inventory-service
-npm test
-\\\
+### 🌐 Serviços e Portas
 
-**Payments Service**
-\\\powershell
-cd services/payments-service
-python -m pytest tests/ -v --cov=app
-\\\
+| Serviço              | Porta |
+|----------------------|-------|
+| API Gateway          | 8080  |
+| Orders Service       | 3001  |
+| Payments Service     | 3002  |
+| Inventory Service    | 3003  |
+| PostgreSQL           | 5432  |
+| Redis                | 6379  |
+| RabbitMQ             | 5672  |
+| RabbitMQ Management  | 15672 |
 
-### Cobertura de testes
+### 💾 Redes e Volumes
 
-| Serviço | Testes | Coverage |
-|---------|--------|----------|
-| Orders | 4 ✅ | 47.87% |
-| Inventory | 5 ✅ | 53.5% |
-| Payments | 10 ✅ | 74% |
-| **Total** | **19 ✅** | **~58%** |
+O Docker Compose utiliza uma rede dedicada para comunicação entre os serviços:
 
-### Rodar testes com watch mode (Node.js)
-\\\powershell
-npm test -- --watch
-\\\
+- `pedidos-network`
 
-### Gerar relatório HTML de cobertura
-\\\powershell
-# Node.js
-npm test -- --coverage
+Volumes persistentes utilizados:
 
-# Python
-python -m pytest tests/ --cov=app --cov-report=html
-\\\
+- `postgres_data`
+- `redis_data`
+- `rabbitmq_data`
 
-## 🔄 CI/CD Pipeline
+Os volumes permitem preservar os dados dos serviços de infraestrutura mesmo quando os containers são recriados.
 
-### GitHub Actions Workflows
+---
 
-Temos 3 workflows configurados:
+## 📦 Conteinerização
 
-#### 1. **test.yml** - Testes e Lint
-- Roda em: \push\ e \pull_request\ nas branches \main\ e \develop\
-- Executa:
-  - Testes unitários (Jest + pytest)
-  - Linting (ESLint + pylint)
-  - Scan de segurança (Trivy)
-  - Upload de cobertura (Codecov)
+Cada serviço de aplicação possui seu próprio `Dockerfile`.
 
-#### 2. **build.yml** - Build e Push de Docker
-- Roda em: \push\ na branch \main\
-- Constrói imagens Docker para:
-  - api-gateway
-  - orders-service
-  - inventory-service
-  - payments-service
-- Faz push para GitHub Container Registry (GHCR)
+Estrutura:
 
-#### 3. **deploy.yml** - Deploy em Kubernetes
-- Roda em: \push\ na branch \main\ (com arquivos em \k8s/\)
-- Deploya em cluster Kubernetes
-- Requer \KUBE_CONFIG\ secret configurado
+```text
+services/
+├── api-gateway/
+│   ├── Dockerfile
+│   └── .dockerignore
+├── inventory-service/
+│   ├── Dockerfile
+│   └── .dockerignore
+├── orders-service/
+│   ├── Dockerfile
+│   └── .dockerignore
+└── payments-service/
+    ├── Dockerfile
+    └── .dockerignore
+```
 
-### Status do Pipeline
+### Multi-stage Build
 
-Veja o status em: https://github.com/Devan-M/pedidos-veloz/actions
+Os serviços utilizam builds multi-stage quando aplicável.
 
-### Badges
+- Os serviços Node.js utilizam uma etapa de construção para instalação das dependências e uma imagem separada para execução.
+- O serviço de pagamentos utiliza uma etapa de build para instalação das dependências Python e uma imagem de runtime separada.
 
-[![Tests](https://github.com/Devan-M/pedidos-veloz/actions/workflows/test.yml/badge.svg)](https://github.com/Devan-M/pedidos-veloz/actions/workflows/test.yml)
-[![Build](https://github.com/Devan-M/pedidos-veloz/actions/workflows/build.yml/badge.svg)](https://github.com/Devan-M/pedidos-veloz/actions/workflows/build.yml)
-[![Deploy](https://github.com/Devan-M/pedidos-veloz/actions/workflows/deploy.yml/badge.svg)](https://github.com/Devan-M/pedidos-veloz/actions/workflows/deploy.yml)
+Essa abordagem reduz o conteúdo desnecessário presente na imagem final e separa o processo de construção do ambiente de execução.
 
-## 🚀 Deployment
+### Segurança dos Containers
 
-### Kubernetes
+Os serviços de aplicação são executados com usuários não-root.
 
-\\\powershell
-# Aplicar configurações
-kubectl apply -f k8s/base/
+Exemplos:
 
-# Verificar deployments
-kubectl get deployments -n pedidos-veloz
+```dockerfile
+USER nodejs
+```
 
-# Ver logs
-kubectl logs -f deployment/orders-service -n pedidos-veloz
-\\\
+```dockerfile
+USER appuser
+```
 
-### Docker Compose (Desenvolvimento)
+Também são utilizadas imagens base enxutas, como:
 
-\\\powershell
-# Iniciar tudo
-docker-compose up -d
+- `node:20-alpine`
+- `python:3.14-slim`
 
-# Parar
-docker-compose down
+Os arquivos `.dockerignore` impedem que conteúdos desnecessários ou sensíveis sejam enviados para o contexto de build, entre eles:
 
-# Ver logs
-docker-compose logs -f orders-service
-\\\
+- `.git`
+- `.env`
+- `.env.local`
+- `node_modules`
+- `coverage`
+- `dist`
+- `build`
 
-## 📚 Documentação
+### 🏷️ Versionamento das Imagens
 
-### Endpoints da API
+As imagens dos serviços são publicadas no **GitHub Container Registry (GHCR)**.
 
-#### Health Checks
-\\\
-GET /health - Status do serviço
-GET /ready - Readiness probe
-GET /metrics - Métricas Prometheus
-\\\
+As tags utilizam a branch e o commit responsável pela construção da imagem.
 
-#### Orders Service
-\\\
-GET    /orders - Listar pedidos
-POST   /orders - Criar pedido
-GET    /orders/:id - Obter pedido
-PATCH  /orders/:id - Atualizar pedido
-\\\
+Exemplo:
 
-#### Inventory Service
-\\\
-GET    /inventory - Listar produtos
-POST   /inventory - Criar produto
-GET    /inventory/:id - Obter produto
-PATCH  /inventory/:id - Atualizar quantidade
-POST   /inventory/check-availability - Verificar disponibilidade
-\\\
+```text
+ghcr.io/devan-m/pedidos-veloz/orders-service:main-04ba594
+```
 
-#### Payments Service
-\\\
-GET    /payments - Listar pagamentos
-POST   /payments - Criar pagamento
-GET    /payments/:id - Obter pagamento
-PATCH  /payments/:id - Processar pagamento
-\\\
+Esse modelo permite relacionar diretamente uma imagem Docker ao commit correspondente no repositório.
 
-### Variáveis de Ambiente
+---
 
-Veja \.env.example\ em cada serviço para todas as opções disponíveis.
+## ☸️ Kubernetes
 
-### Estrutura do Projeto
+Os manifests Kubernetes estão organizados no diretório `k8s/`.
 
-\\\
-pedidos-veloz/
-├── .github/
-│   └── workflows/
-│       ├── test.yml
-│       ├── build.yml
-│       └── deploy.yml
-├── services/
-│   ├── api-gateway/
-│   ├── orders-service/
-│   │   ├── src/
-│   │   ├── __tests__/
-│   │   └── package.json
-│   ├── inventory-service/
-│   │   ├── src/
-│   │   ├── __tests__/
-│   │   └── package.json
-│   └── payments-service/
-│       ├── app.py
-│       ├── tests/
-│       └── requirements.txt
-├── k8s/
-│   ├── base/
-│   ├── monitoring/
-│   └── security/
-├── docker-compose.yml
-└── README.md
-\\\
+A configuração utiliza **Kustomize** para organização dos recursos.
 
-## 🤝 Contribuindo
+Principais recursos utilizados:
 
-1. Crie uma branch: \git checkout -b feature/minha-feature\
-2. Faça commit: \git commit -m "feat: descrição"\
-3. Rode testes: \
-pm test\ ou \pytest tests/\
-4. Faça push: \git push origin feature/minha-feature\
-5. Abra um Pull Request
+- Deployments
+- Services
+- ConfigMaps
+- Secrets
+- HorizontalPodAutoscalers
+- Network Policies
+- Readiness Probes
+- Liveness Probes
+- Security Contexts
 
-### Padrão de Commits
+### Deployments
 
-Usamos [Conventional Commits](https://www.conventionalcommits.org/):
+Os serviços de aplicação são executados através de Kubernetes Deployments.
 
-\\\
-feat: adicionar nova funcionalidade
-fix: corrigir bug
-test: adicionar testes
-ci: atualizar CI/CD
-docs: atualizar documentação
-chore: tarefas de manutenção
-\\\
+Principais workloads:
 
-## 📊 Monitoramento
+- `api-gateway`
+- `orders-service`
+- `inventory-service`
+- `payments-service`
 
-### Prometheus
-- URL: http://localhost:9090
-- Métricas disponíveis em \/metrics\
+Os componentes de infraestrutura também possuem seus respectivos recursos Kubernetes.
 
-### Grafana
-- URL: http://localhost:3000
-- Dashboards pré-configurados
+### Services
+
+Os Kubernetes Services fornecem comunicação estável entre os Pods e permitem a descoberta dos serviços através do DNS interno do cluster.
+
+### 🔐 ConfigMaps e Secrets
+
+Configurações não sensíveis podem ser armazenadas em ConfigMaps.
+
+Informações sensíveis são armazenadas através de Kubernetes Secrets.
+
+> ⚠️ Credenciais não devem ser armazenadas diretamente nos manifests versionados.
+
+Arquivos locais contendo informações sensíveis, como:
+
+- `.env`
+- `k8s/base/secret.env`
+
+não são versionados no Git — esses arquivos são protegidos através do `.gitignore`.
+
+### ❤️ Readiness e Liveness Probes
+
+Os serviços utilizam mecanismos de verificação de saúde quando aplicável.
+
+As probes permitem ao Kubernetes:
+
+- identificar quando um Pod está pronto para receber tráfego;
+- detectar containers que não estão respondendo corretamente;
+- retirar Pods não prontos do balanceamento;
+- reiniciar containers que apresentem falhas persistentes.
+
+A `readinessProbe` é especialmente importante durante atualizações *Rolling Update*, pois evita que um Pod seja considerado disponível antes de estar preparado para receber requisições.
+
+### 🛡️ Segurança Kubernetes
+
+O projeto utiliza mecanismos de segurança do Kubernetes, incluindo:
+
+- Pod Security Admission (PSA)
+- Security Contexts
+- `runAsNonRoot`
+- `seccompProfile`
+- Network Policies
+- RBAC
+- Kubernetes Secrets
+
+Os containers são executados sem privilégios administrativos desnecessários.
+
+O perfil `RuntimeDefault` é utilizado através do `seccompProfile`.
+
+As Network Policies restringem a comunicação entre workloads conforme as necessidades da arquitetura.
+
+---
+
+## 🔄 CI/CD
+
+O projeto utiliza **GitHub Actions** para automatizar o ciclo de integração contínua e entrega.
+
+Os workflows estão em `.github/workflows/`:
+
+- `.github/workflows/build.yml`
+- `.github/workflows/deploy.yml`
+
+O pipeline realiza etapas como:
+
+- validação da configuração;
+- execução dos testes automatizados;
+- validação dos manifests Kubernetes;
+- build das imagens Docker;
+- publicação das imagens no GitHub Container Registry;
+- deploy automatizado no Kubernetes.
+
+**Fluxo simplificado:**
+
+```mermaid
+flowchart LR
+    A[Código] --> B[Build]
+    B --> C[Testes]
+    C --> D[Validações]
+    D --> E[Build das imagens]
+    E --> F[Publicação no GHCR]
+    F --> G[Deploy Kubernetes]
+```
+
+### Build
+
+O pipeline realiza o build das aplicações e das respectivas imagens Docker.
+
+Os Dockerfiles dos serviços utilizam estratégias multi-stage quando aplicável.
+
+### Testes
+
+São executados testes automatizados durante o processo de CI.
+
+Os serviços possuem testes específicos executados pelo pipeline antes da publicação das imagens.
+
+### Validações
+
+O pipeline também realiza validações básicas da infraestrutura Kubernetes, incluindo validação da configuração dos manifests.
+
+O objetivo é impedir que configurações inválidas sejam utilizadas no processo de deploy.
+
+### Publicação de Imagens
+
+Após as etapas de validação, as imagens Docker são publicadas no **GitHub Container Registry (GHCR)**.
+
+As imagens recebem tags associadas ao commit. Exemplo:
+
+```text
+main-04ba594
+```
+
+Isso fornece rastreabilidade entre código-fonte e artefato publicado.
+
+### Secrets no CI/CD
+
+Informações sensíveis utilizadas pelo pipeline são fornecidas através dos mecanismos de Secrets do GitHub Actions.
+
+Secrets não são armazenados diretamente no código-fonte.
+
+Quando arquivos temporários são utilizados durante o deploy, eles são removidos ao final da execução através de uma etapa de limpeza executada mesmo quando ocorre falha.
+
+---
+
+## 🔄 Estratégia de Deploy
+
+O projeto utiliza **Rolling Update** como estratégia de implantação no Kubernetes.
+
+A estratégia substitui gradualmente os Pods da versão anterior pelos Pods da nova versão.
+
+```mermaid
+flowchart TD
+    subgraph V1["Versão anterior"]
+        direction LR
+        A1[Pod A] --- B1[Pod B] --- C1[Pod C]
+    end
+    subgraph V2["Atualização gradual"]
+        direction LR
+        A2["Pod A'"] --- B2[Pod B] --- C2[Pod C]
+    end
+    subgraph V3["Atualização gradual"]
+        direction LR
+        A3["Pod A'"] --- B3["Pod B'"] --- C3[Pod C]
+    end
+    subgraph V4["Nova versão"]
+        direction LR
+        A4["Pod A'"] --- B4["Pod B'"] --- C4["Pod C'"]
+    end
+
+    V1 --> V2 --> V3 --> V4
+```
+
+A escolha do Rolling Update é adequada ao projeto porque:
+
+- utiliza recursos nativos dos Deployments;
+- reduz a possibilidade de indisponibilidade;
+- não exige infraestrutura duplicada;
+- permite substituição gradual dos Pods;
+- pode utilizar readiness probes para controlar quando novos Pods recebem tráfego.
+
+---
+
+## 📈 Estratégia de Escalabilidade
+
+O projeto utiliza **Horizontal Pod Autoscaler (HPA)** para realizar escalabilidade horizontal.
+
+Possuem HPA os seguintes serviços:
+
+- API Gateway
+- Inventory Service
+- Orders Service
+- Payments Service
+
+Os HPA utilizam métricas de:
+
+- CPU
+- memória
+
+O número de réplicas é ajustado automaticamente conforme a utilização dos recursos.
+
+```mermaid
+flowchart TD
+    A[Baixa demanda] --> B[2 Pods]
+    B -- aumento da carga --> C[3 Pods]
+    C -- aumento da carga --> D[4 Pods]
+    D -- ... --> E[N Pods]
+    E -- redução da carga --> B
+```
+
+Quando a demanda diminui, o HPA pode reduzir novamente a quantidade de réplicas até o limite mínimo configurado.
+
+### Por que HPA?
+
+O HPA foi escolhido porque o principal requisito de escalabilidade do projeto é aumentar ou reduzir horizontalmente a quantidade de instâncias dos serviços.
+
+Essa estratégia permite:
+
+- absorver aumento de carga;
+- melhorar disponibilidade;
+- distribuir requisições entre múltiplos Pods;
+- reduzir consumo de recursos quando a demanda diminui.
+
+O VPA não é utilizado como mecanismo principal porque o projeto prioriza a alteração da quantidade de Pods, e não o ajuste automático dos recursos individuais de cada Pod.
+
+---
+
+## 📊 Observabilidade
+
+A arquitetura possui uma camada de observabilidade baseada em:
+
+- Prometheus
+- Grafana
+- Grafana Alloy
+- Loki
+- Jaeger
+
+A estratégia contempla três pilares principais: **métricas**, **logs** e **traces**.
+
+### Métricas
+
+O Prometheus é utilizado para coleta e armazenamento de métricas.
+
+Entre os indicadores acompanhados estão:
+
+- utilização de CPU;
+- utilização de memória;
+- disponibilidade dos Pods;
+- estado dos workloads;
+- métricas utilizadas pelo HPA;
+- métricas de aplicação quando disponibilizadas pelos serviços.
+
+### Dashboards
+
+O Grafana é utilizado para visualização das métricas e construção de dashboards, permitindo acompanhar o estado da aplicação e da infraestrutura.
 
 ### Logs
-- ELK Stack (Elasticsearch, Logstash, Kibana)
-- Visualizar em: http://localhost:5601
+
+O projeto utiliza o fluxo:
+
+```mermaid
+flowchart LR
+    A[Workloads] --> B[Grafana Alloy]
+    B --> C[Loki]
+    C --> D[Grafana]
+```
+
+O Grafana Alloy realiza a coleta dos logs dos workloads e o Loki atua como backend de armazenamento e consulta. Essa arquitetura centraliza os logs e facilita a investigação de falhas.
+
+### 🔎 Tracing Distribuído
+
+O projeto utiliza **Jaeger** como componente destinado ao tracing distribuído, permitindo acompanhar uma requisição ao longo dos diferentes serviços:
+
+```mermaid
+flowchart TD
+    Cliente --> GW[API Gateway]
+    GW --> ORD[Orders Service]
+    ORD --> INV[Inventory Service]
+    ORD --> PAY[Payments Service]
+```
+
+O tracing distribuído permite identificar:
+
+- latência;
+- gargalos;
+- falhas;
+- dependências entre serviços;
+- tempo gasto em cada etapa da requisição.
+
+A instrumentação pode ser expandida conforme a evolução dos serviços.
+
+### Acessando as ferramentas de observabilidade
+
+| Ferramenta      | Endereço                                      | Função                                                        |
+|------------------|-----------------------------------------------|----------------------------------------------------------------|
+| **Prometheus**   | [http://localhost:9090](http://localhost:9090) | Coleta e armazenamento de métricas                             |
+| **Grafana**      | [http://localhost:3000](http://localhost:3000) | Visualização de métricas, dashboards e consulta aos logs       |
+| **Loki**         | —                                              | Backend de armazenamento e consulta dos logs do Grafana Alloy  |
+| **Grafana Alloy**| —                                              | Coleta e encaminhamento dos logs dos workloads                 |
+| **Jaeger**       | —                                              | Tracing distribuído                                             |
+
+---
+
+## 📁 Estrutura do Projeto
+
+```text
+pedidos-veloz/
+│
+├── .github/
+│   └── workflows/
+│       ├── build.yml
+│       └── deploy.yml
+│
+├── k8s/
+│   ├── base/
+│   ├── security/
+│   └── observability/
+│
+├── services/
+│   ├── api-gateway/
+│   ├── inventory-service/
+│   ├── orders-service/
+│   └── payments-service/
+│
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 🧪 Validação Kubernetes
+
+Para validar os manifests sem realizar alterações no cluster:
+
+```bash
+kubectl apply --dry-run=client -k k8s/base
+```
+
+Para verificar os Deployments:
+
+```bash
+kubectl get deployments -n pedidos-veloz
+```
+
+Para verificar os Pods:
+
+```bash
+kubectl get pods -n pedidos-veloz
+```
+
+Para verificar os Services:
+
+```bash
+kubectl get services -n pedidos-veloz
+```
+
+Para verificar os HPA:
+
+```bash
+kubectl get hpa -n pedidos-veloz
+```
+
+Para verificar as métricas:
+
+```bash
+kubectl top pods -n pedidos-veloz
+```
+
+---
 
 ## 🔒 Segurança
 
-- Network Policies configuradas
-- Pod Security Policies ativadas
-- Secrets gerenciados por Kubernetes
-- Scan de vulnerabilidades (Trivy) no CI/CD
-- RBAC configurado
+O projeto adota práticas de segurança em diferentes camadas:
+
+- containers executados como não-root;
+- imagens base enxutas;
+- `.dockerignore`;
+- Secrets do Kubernetes;
+- Secrets do GitHub Actions;
+- Network Policies;
+- Pod Security Admission;
+- `seccompProfile: RuntimeDefault`;
+- RBAC;
+- redução de privilégios dos containers;
+- exclusão de arquivos temporários contendo informações sensíveis.
+
+Arquivos locais contendo credenciais não são versionados:
+
+- `.env`
+- `.env.local`
+- `k8s/base/secret.env`
+
+---
+
+## 📋 Atendimento aos Requisitos
+
+| Requisito                            | Implementação             |
+|---------------------------------------|----------------------------|
+| Ambiente local com Docker Compose     | ✅ |
+| Arquitetura multi-serviço funcional   | ✅ |
+| Serviços iniciados com um único comando | ✅ `docker compose up -d` |
+| Redes                                 | ✅ |
+| Volumes persistentes                  | ✅ |
+| Variáveis de ambiente                 | ✅ |
+| Instruções claras no README           | ✅ |
+| Dockerfiles estruturados              | ✅ |
+| Multi-stage build                     | ✅ |
+| Versionamento das imagens             | ✅ |
+| Containers não-root                   | ✅ |
+| Dependências mínimas                  | ✅ |
+| Kubernetes                            | ✅ |
+| Deployments                           | ✅ |
+| Services                              | ✅ |
+| ConfigMaps                            | ✅ |
+| Secrets                               | ✅ |
+| Readiness probes                      | ✅ |
+| Liveness probes                       | ✅ |
+| Pod Security Admission                | ✅ |
+| Network Policies                      | ✅ |
+| RBAC                                  | ✅ |
+| CI/CD automatizado                    | ✅ |
+| Build                                 | ✅ |
+| Testes                                | ✅ |
+| Publicação de imagens                 | ✅ GHCR |
+| Secrets no pipeline                   | ✅ |
+| Validações básicas                    | ✅ |
+| Métricas                              | ✅ Prometheus |
+| Dashboards                            | ✅ Grafana |
+| Logs                                  | ✅ Alloy + Loki |
+| Tracing distribuído                   | ✅ Jaeger |
+| Estratégia de deploy                  | ✅ Rolling Update |
+| Escalabilidade                        | ✅ HPA |
+
+---
+
+## 📚 Conclusão
+
+O **Pedidos Veloz** apresenta uma arquitetura baseada em microsserviços que atende aos requisitos de execução local, conteinerização, Kubernetes, CI/CD, observabilidade, estratégia de deploy e escalabilidade.
+
+A solução utiliza:
+
+- Docker Compose para ambiente local;
+- Dockerfiles multi-stage;
+- containers executados como não-root;
+- versionamento de imagens por commit;
+- Kubernetes para implantação;
+- ConfigMaps e Secrets;
+- readiness e liveness probes;
+- Pod Security Admission;
+- Network Policies;
+- RBAC;
+- GitHub Actions;
+- GitHub Container Registry;
+- Prometheus;
+- Grafana;
+- Grafana Alloy;
+- Loki;
+- Jaeger;
+- Rolling Update;
+- Horizontal Pod Autoscaler.
+
+---
 
 ## 📝 Licença
 
-MIT License - veja [LICENSE](LICENSE) para detalhes
+Distribuído sob a licença **MIT**.
 
 ## 👨‍💻 Autor
 
 **Devan M**
-- GitHub: [@Devan-M](https://github.com/Devan-M)
-- Repositório: [pedidos-veloz](https://github.com/Devan-M/pedidos-veloz)
 
-## 📞 Suporte
-
-Para dúvidas ou problemas:
-1. Abra uma [Issue](https://github.com/Devan-M/pedidos-veloz/issues)
-2. Verifique a documentação em \/docs\
-3. Veja os logs: \docker-compose logs\
-
----
-
-**Última atualização**: Agosto 2026
+GitHub: [github.com/Devan-M/pedidos-veloz](https://github.com/Devan-M/pedidos-veloz)
