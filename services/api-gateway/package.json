@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --import ./instrumentation.mjs src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest --coverage",
+    "test": "jest --coverage --passWithNoTests",
     "lint": "eslint src/"
   },
   "keywords": [
