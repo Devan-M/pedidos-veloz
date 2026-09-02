@@ -5,3 +5,4 @@ namespace: pedidos-veloz
 
 resources:
   - network-policy.yaml
+  - network-policy-tracing.yaml

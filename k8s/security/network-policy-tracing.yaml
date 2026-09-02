@@ -1,0 +1,44 @@
+# ============================================================
+# API GATEWAY -> ALLOY OTLP
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alloy-from-api-gateway
+  namespace: pedidos-veloz
+spec:
+  podSelector:
+    matchLabels:
+      app: alloy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - protocol: TCP
+          port: 4317
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jaeger-from-alloy
+  namespace: pedidos-veloz
+spec:
+  podSelector:
+    matchLabels:
+      app: jaeger
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: alloy
+      ports:
+        - protocol: TCP
+          port: 4317

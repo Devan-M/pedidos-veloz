@@ -8,3 +8,4 @@ resources:
   - prometheus-configmap.yaml
   - prometheus-deployment.yaml
   - grafana-deployment.yaml
+  - jaeger.yaml

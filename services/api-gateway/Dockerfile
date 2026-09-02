@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependências
-RUN npm ci --only=production && \
+RUN npm ci --omit=dev && \
     npm cache clean --force
 
 # Stage 2: Runtime
@@ -30,4 +30,4 @@ USER nodejs
 
 EXPOSE 8080
 
-CMD ["node", "src/index.js"]
+CMD ["node", "--import", "./instrumentation.mjs", "src/index.js"]
