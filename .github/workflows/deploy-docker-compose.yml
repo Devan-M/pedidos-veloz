@@ -23,6 +23,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Load server environment
+        run: |
+          if [ ! -f /pedidos-veloz/.env ]; then
+            echo "❌ /pedidos-veloz/.env not found!"
+            exit 1
+          fi
+
+          cp /pedidos-veloz/.env "$GITHUB_WORKSPACE/.env"
+          chmod 600 "$GITHUB_WORKSPACE/.env"
+
+          echo "✅ Server environment loaded"
+
       - name: Build Docker images
         run: |
           docker compose build --no-cache
