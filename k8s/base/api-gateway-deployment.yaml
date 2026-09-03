@@ -33,7 +33,6 @@ spec:
         fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: pedidos-sa
       containers:
       - name: api-gateway
         image: pedidos-veloz-api-gateway:latest

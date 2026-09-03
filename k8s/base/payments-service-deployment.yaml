@@ -32,7 +32,6 @@ spec:
         fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: pedidos-sa
       containers:
       - name: payments-service
         image: pedidos-veloz-payments-service:latest
