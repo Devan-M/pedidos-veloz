@@ -164,3 +164,71 @@ def test_ready_check(client, mock_db, mock_redis, mock_channel):
     response = client.get('/ready')
     assert response.status_code == 200
     assert response.json['ready'] == True
+
+def test_ready_reconnects_when_database_is_not_initialized(client):
+    """Ready deve tentar conectar quando o banco ainda não foi inicializado."""
+    import app as payments_app
+
+    mock_connection = Mock()
+    mock_cursor = Mock()
+    mock_cursor.fetchone.return_value = (1,)
+    mock_connection.cursor.return_value = mock_cursor
+
+    with patch(
+        "app.psycopg2.connect",
+        return_value=mock_connection,
+    ) as mock_connect:
+        payments_app.db = None
+
+        response = client.get("/ready")
+
+        assert response.status_code == 200
+        assert response.json["ready"] is True
+        mock_connect.assert_called_once()
+        assert payments_app.db is not None
+
+
+def test_ready_returns_503_when_database_reconnect_fails(client):
+    """Ready deve permanecer 503 quando o PostgreSQL continua indisponível."""
+    import app as payments_app
+
+    payments_app.db = None
+
+    with patch(
+        "app.psycopg2.connect",
+        side_effect=Exception("connection refused"),
+    ) as mock_connect:
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert response.json["ready"] is False
+        assert response.json["error"] == "Database unavailable"
+        mock_connect.assert_called_once()
+        assert payments_app.db is None
+
+
+def test_ready_reconnects_after_existing_database_connection_fails(client):
+    """Ready deve reconectar quando uma conexão existente deixa de funcionar."""
+    import app as payments_app
+
+    broken_db = Mock()
+    broken_db.execute.side_effect = Exception("connection lost")
+
+    new_connection = Mock()
+    new_cursor = Mock()
+    new_cursor.fetchone.return_value = (1,)
+    new_connection.cursor.return_value = new_cursor
+
+    with patch(
+        "app.psycopg2.connect",
+        return_value=new_connection,
+    ) as mock_connect:
+        payments_app.db = broken_db
+
+        response = client.get("/ready")
+
+        assert response.status_code == 200
+        assert response.json["ready"] is True
+        mock_connect.assert_called_once()
+        assert payments_app.db is not None
+        assert payments_app.db.connection is new_connection

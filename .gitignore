@@ -71,3 +71,4 @@ k8s/base/secret.yaml
 coverage.xml
 coverage/
 .pytest_cache/
+.venv/

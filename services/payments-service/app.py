@@ -46,17 +46,17 @@ def set_dependencies(database, mock_redis=None, channel_param=None):
     channel = channel_param
 
 
-def initialize_dependencies():
-    global db, redis_client, channel
+def connect_postgres():
+    """Tenta conectar ou reconectar ao PostgreSQL."""
+    global db
 
-    # PostgreSQL
+    postgres_host = os.getenv("POSTGRES_HOST", "postgres-service")
+    postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
+    postgres_db = os.getenv("POSTGRES_DB", "pedidos_veloz")
+    postgres_user = os.getenv("POSTGRES_USER", "postgres")
+    postgres_password = os.getenv("POSTGRES_PASSWORD", "")
+
     try:
-        postgres_host = os.getenv("POSTGRES_HOST", "postgres-service")
-        postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
-        postgres_db = os.getenv("POSTGRES_DB", "pedidos_veloz")
-        postgres_user = os.getenv("POSTGRES_USER", "postgres")
-        postgres_password = os.getenv("POSTGRES_PASSWORD", "")
-
         connection = psycopg2.connect(
             host=postgres_host,
             port=postgres_port,
@@ -76,9 +76,19 @@ def initialize_dependencies():
             postgres_db,
         )
 
+        return True
+
     except Exception as e:
         db = None
-        logger.error("PostgreSQL initialization error: %s", e)
+        logger.warning("PostgreSQL connection attempt failed: %s", e)
+        return False
+
+
+def initialize_dependencies():
+    global db, redis_client, channel
+
+    # PostgreSQL
+    connect_postgres()
 
     # Redis
     try:
@@ -163,23 +173,48 @@ def health():
 # Readiness check
 @app.route("/ready", methods=["GET"])
 def ready():
-    try:
-        if db is None:
-            return jsonify({
-                "ready": False,
-                "error": "Database not initialized"
-            }), 503
+    global db
 
-        result = db.execute("SELECT 1")
-        result.fetchone()
+    try:
+        # Se a conexão ainda não foi estabelecida durante o startup,
+        # tenta recuperá-la sem derrubar o processo.
+        if db is None:
+            if not connect_postgres():
+                return jsonify({
+                    "ready": False,
+                    "error": "Database unavailable"
+                }), 503
+
+        try:
+            result = db.execute("SELECT 1")
+            result.fetchone()
+
+        except Exception as e:
+            # A conexão existente pode ter sido perdida depois do startup.
+            logger.warning(
+                "PostgreSQL readiness check failed, attempting reconnect: %s",
+                e,
+            )
+
+            db = None
+
+            if not connect_postgres():
+                return jsonify({
+                    "ready": False,
+                    "error": "Database unavailable"
+                }), 503
+
+            result = db.execute("SELECT 1")
+            result.fetchone()
 
         return jsonify({"ready": True}), 200
 
     except Exception as e:
+        db = None
         logger.error("Readiness check failed: %s", e)
         return jsonify({
             "ready": False,
-            "error": str(e)
+            "error": "Database unavailable"
         }), 503
 
 
