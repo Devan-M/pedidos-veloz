@@ -113,7 +113,7 @@ jobs:
 
           kubectl kustomize k8s/base > /tmp/pedidos-veloz-k8s.yaml
 
-          kubectl apply --dry-run=server \
+          kubectl apply --dry-run=client \
             -f /tmp/pedidos-veloz-k8s.yaml
 
       - name: Deploy with Kustomize
