@@ -17,23 +17,37 @@ env:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: [self-hosted, pedidos-veloz-test]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Load server environment
+      - name: Create temporary environment
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          RABBITMQ_DEFAULT_USER: ${{ secrets.RABBITMQ_DEFAULT_USER }}
+          RABBITMQ_DEFAULT_PASS: ${{ secrets.RABBITMQ_DEFAULT_PASS }}
         run: |
-          if [ ! -f /pedidos-veloz/.env ]; then
-            echo "❌ /pedidos-veloz/.env not found!"
-            exit 1
-          fi
+          cat > "$GITHUB_WORKSPACE/.env" <<EOF
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=pedidos_veloz
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+          RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+          EOF
 
-          cp /pedidos-veloz/.env "$GITHUB_WORKSPACE/.env"
           chmod 600 "$GITHUB_WORKSPACE/.env"
 
-          echo "✅ Server environment loaded"
+          echo "✅ Temporary Docker Compose environment created"
+
+      - name: Validate Docker Compose configuration
+        run: |
+          docker compose config --quiet
+          echo "✅ Docker Compose configuration is valid"
 
       - name: Build Docker images
         run: |
@@ -100,3 +114,9 @@ jobs:
           echo "❌ Deployment failed!"
           docker compose logs
           exit 1
+
+      - name: Cleanup temporary environment
+        if: always()
+        run: |
+          rm -f "$GITHUB_WORKSPACE/.env"
+          echo "🧹 Temporary Docker Compose environment removed"
