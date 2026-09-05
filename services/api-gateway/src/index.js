@@ -63,14 +63,25 @@ app.get('/health', (req, res) => {
 // Readiness check
 app.get('/ready', async (req, res) => {
   try {
-    // Verificar conectividade com serviços
-    await Promise.all([
-      axios.get('http://orders-service:3001/health', { timeout: 5000 }).catch(() => null),
-      axios.get('http://inventory-service:3003/health', { timeout: 5000 }).catch(() => null),
+    // Verificar se os serviços essenciais estão prontos
+    const [ordersResponse, inventoryResponse] = await Promise.all([
+      axios.get('http://orders-service:3001/ready', { timeout: 2000 }),
+      axios.get('http://inventory-service:3003/ready', { timeout: 2000 }),
     ]);
+
+    if (ordersResponse.status !== 200 || inventoryResponse.status !== 200) {
+      return res.status(503).json({
+        ready: false,
+        error: 'Dependency not ready',
+      });
+    }
+
     res.json({ ready: true });
   } catch (error) {
-    res.status(503).json({ ready: false, error: error.message });
+    res.status(503).json({
+      ready: false,
+      error: error.message,
+    });
   }
 });
 
@@ -171,8 +182,10 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API Gateway rodando na porta ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`API Gateway rodando na porta ${PORT}`);
+  });
+}
 
 module.exports = app;

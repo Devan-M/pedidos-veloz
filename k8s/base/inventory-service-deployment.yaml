@@ -108,7 +108,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /health
+            path: /ready
             port: 3003
           initialDelaySeconds: 10
           periodSeconds: 5
