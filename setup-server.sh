@@ -270,14 +270,24 @@ if ! getent group docker >/dev/null 2>&1; then
     sudo groupadd docker
 fi
 
-sudo usermod -aG docker "${CURRENT_USER}"
-
-print_success "Usuário ${CURRENT_USER} adicionado ao grupo docker"
-
 if id -nG "${CURRENT_USER}" | tr ' ' '\n' | grep -qx docker; then
+    print_info "Usuário ${CURRENT_USER} já pertence ao grupo docker."
+else
+    sudo usermod -aG docker "${CURRENT_USER}"
+    print_success "Usuário ${CURRENT_USER} adicionado ao grupo docker"
+fi
+
+if id -nG | tr ' ' '\n' | grep -qx docker; then
     print_info "Grupo docker já está disponível na sessão atual."
 else
-    print_warning "O grupo docker será aplicado à próxima sessão/login."
+    if [[ "${DOCKER_GROUP_REEXEC:-0}" == "1" ]]; then
+        handle_error "Grupo docker não ficou disponível após atualização da sessão."
+    fi
+
+    print_info "Atualizando a sessão para aplicar o grupo docker..."
+
+    export DOCKER_GROUP_REEXEC=1
+    exec sg docker -c "DOCKER_GROUP_REEXEC=1 bash \"${BASH_SOURCE[0]}\""
 fi
 
 # ============================================================
