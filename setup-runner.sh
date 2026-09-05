@@ -156,12 +156,16 @@ print_info "Arquitetura detectada: ${RUNNER_ARCH}"
 
 print_info "Consultando versão atual do GitHub Actions Runner..."
 
+if ! command -v jq >/dev/null 2>&1; then
+    handle_error "jq não está instalado. Execute primeiro ./setup-server.sh."
+fi
+
 RUNNER_VERSION="$(
     curl -fsSL \
         -H "Accept: application/vnd.github+json" \
         https://api.github.com/repos/actions/runner/releases/latest |
-        grep -m1 '"tag_name":' |
-        sed -E 's/.*"v([^"]+)".*/\1/'
+        jq -r '.tag_name // empty' |
+        sed 's/^v//'
 )"
 
 if [[ -z "${RUNNER_VERSION}" ]]; then
